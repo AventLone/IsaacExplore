@@ -1,6 +1,7 @@
 from utils import *
 import time
 start = time.time()
+
 app = openSimuApp("configs/config_1.yaml")
 
 import omni.replicator.core as rep
@@ -30,7 +31,7 @@ class DateGenerator:
         self._writer.initialize(output_dir=data_save_dir, rgb=True, semantic_segmentation=True)
         self._writer.attach(self._render_product)
 
-        self.finished = asyncio.Event()
+        self.finished = False
 
     def __randomizeCameraPose(self):
         with self._camera:
@@ -39,45 +40,34 @@ class DateGenerator:
                 look_at="/World/Cages/CageA_1"
             )
 
-    def run(self):
-        # 关键：不要 asyncio.run()；用 create_task/ensure_future 把协程挂到 Kit 的事件循环
-        asyncio.get_event_loop().create_task(self.generate())
+    # def run(self):
+    #     # 关键：不要 asyncio.run()；用 create_task/ensure_future 把协程挂到 Kit 的事件循环
+    #     asyncio.get_event_loop().create_task(self.generate())
 
-    async def generate(self):
+    def generate(self):
         for _ in range(self._frames_required):
-            # timeline = omni.timeline.get_timeline_interface()
-
-            # if self.control_timeline and not timeline.is_playing():
-            #     timeline.play()
-            #     timeline.commit()
-            # await omni.kit.app.get_app().next_update_async()
-
-            # await rep.orchestrator.step_async()
             self.__randomizeCameraPose()
-            await omni.kit.app.get_app().next_update_async()
-            await rep.orchestrator.step_async()
+            # omni.kit.app.get_app().next_update()
+            rep.orchestrator.step()
 
         self._writer.detach()
         self._render_product.destroy()
 
-        await rep.orchestrator.wait_until_complete_async()
+        rep.orchestrator.wait_until_complete()
 
-        self.finished.set()
-
-
-    async def tasks(self):
-        await asyncio.gather(self.generate())
+        self.finished = True
 
 
 generator = DateGenerator(2**10)
-generator.run()
+generator.generate()
 
 # Let the simulation run until it is manually closed
-while app.is_running() and not generator.finished.is_set():
+while app.is_running() and not generator.finished:
     app.update()
 
 end = time.time()
 print(f"Time elapse: {end - start}")
 
 app.close()
+
 

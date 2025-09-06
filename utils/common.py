@@ -10,5 +10,6 @@ def openSimuApp(config_file_path: str):
     simulation_app = SimulationApp(simulate_config["config"])
     from isaacsim.core.utils.stage import open_stage
     open_stage(simulate_config["stage_file_path"])
+    simulation_app.update()
 
     return simulation_app

@@ -1,4 +1,4 @@
 # 1 Simulation config
 simulation_app:
-    config: {"headless": False}
-    stage_file_path: "/home/vn/Documents/IsaacStages/Collected_WarehouseForkliftE/ForkliftE_test.usd"
+    config: {"headless": True}
+    stage_file_path: "/home/avent/Documents/IsaacAssets/Stages/WarehouseCages.usd"
