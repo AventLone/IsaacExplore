@@ -2,3 +2,9 @@
 simulation_app:
     config: {"headless": True}
     stage_file_path: "/home/avent/Documents/IsaacAssets/Stages/WarehouseCages.usd"
+
+obj_data_collect:
+    obj_prim_path: "/World/Cages/CageA_1"
+    camera_position_domain_lower: [8.0, 8.0, 0.06]
+    camera_position_domain_upper: [8.0, 8.0, 8.0]
+    frames_required: 10
