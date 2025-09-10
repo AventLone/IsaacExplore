@@ -1,0 +1,13 @@
+# 1 Simulation config
+simulation_app:
+    config: {"renderer": "RayTracedLighting", "headless": True}
+    stage_file_path: "/home/vn/Documents/IsaacSimAssets/Assets/Isaac/5.0/Isaac/VN/Stages/WarehouseCages.usd"
+
+obj_randomize:
+
+
+obj_data_collect:
+    obj_prim_path: "/World/Cages/CageA"
+    camera_position_domain_lower: [5.0, 5.0, 0.06]
+    camera_position_domain_upper: [5.0, 5.0, 5.0]
+    frames_required: 100
