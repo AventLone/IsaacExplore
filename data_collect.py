@@ -1,9 +1,9 @@
 from utils import *
-simulate_app = openSimuApp("./configs/sdg_1.yaml")
+simulate_app = open_simu_app("./configs/sdg_1.yaml")
 
 from modules import ObjBasedDateGenerator
 
-data_collect_config = loadConfig("./configs/sdg_1.yaml")["obj_data_collect"]
+data_collect_config = load_config("./configs/sdg_1.yaml")["obj_data_collect"]
 
 generator = ObjBasedDateGenerator(data_collect_config)
 generator.generate()
