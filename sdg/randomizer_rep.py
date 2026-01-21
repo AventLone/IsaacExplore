@@ -1,32 +1,37 @@
 import omni.replicator.core as rep
 from isaacsim.core.utils import xforms
-import random
+import numpy as np
+# import random
 
-class ObjRandomizer:
-    def __init__(self, obj_prim_path) -> None:
-        self._obj_prim_path = obj_prim_path
-        self.rep_obj_prim = rep.get.prim_at_path(obj_prim_path)
-        self._mat_pool = rep.create.material_omnipbr(diffuse=rep.distribution.uniform((0.2, 0.1, 0.3), (0.6, 0.6, 0.7)),
-                                                     roughness=random.uniform(0.1, 0.9),
-                                                     metallic=random.uniform(0.1, 0.9),
-                                                     count=100)
+# class ObjRandomizer:
+#     def __init__(self, obj_prim_path) -> None:
+#         self._obj_prim_path = obj_prim_path
+#         self.rep_obj_prim = rep.get.prim_at_path(obj_prim_path)
+#         self._mat_pool = rep.create.material_omnipbr(diffuse=rep.distribution.uniform((0.2, 0.1, 0.3), (0.6, 0.6, 0.7)),
+#                                                      roughness=random.uniform(0.1, 0.9),
+#                                                      metallic=random.uniform(0.1, 0.9),
+#                                                      count=100)
         
-    @property
-    def obj_position(self):
-        position, quat = xforms.get_world_pose(self._obj_prim_path)
-        return position
+#     @property
+#     def obj_position(self):
+#         position, quat = xforms.get_world_pose(self._obj_prim_path)
+#         return position
     
-    def _randomize_obj(self) -> rep.scripts.utils.ReplicatorItem:
-        with self.rep_obj_prim:
-            rep.randomizer.color(colors=rep.distribution.uniform((0.01, 0.01, 0.01), (1.0, 1.0, 1.0)))
-            rep.modify.pose(position=rep.distribution.uniform((-15.0, -2.0, 0.0), (-5.0, 20.0, 0.0)),
-                            rotation=rep.distribution.uniform((0, 0, 0), (0, 0, 360)),  # 度
-                            scale=rep.distribution.uniform((0.8, 0.8, 0.8), (1.2, 1.2, 1.2))
-                        )
+#     def _randomize_obj(self) -> rep.scripts.utils.ReplicatorItem:
+#         with self.rep_obj_prim:
+#             rep.randomizer.color(colors=rep.distribution.uniform((0.01, 0.01, 0.01), (1.0, 1.0, 1.0)))
+#             rep.modify.pose(position=rep.distribution.uniform((-15.0, -2.0, 0.0), (-5.0, 20.0, 0.0)),
+#                             rotation=rep.distribution.uniform((0, 0, 0), (0, 0, 360)),  # 度
+#                             scale=rep.distribution.uniform((0.8, 0.8, 0.8), (1.2, 1.2, 1.2))
+#                         )
             
-        return self.rep_obj_prim.node # type: ignore
+#         return self.rep_obj_prim.node # type: ignore
     
 class Randomizer:
+    camera_position_domain_lower = np.array([-5.0, -5.0, 0.06])
+    camera_position_domain_upper = np.array([5.0, 5.0, 3.0])
+
+
     def __init__(self, prim_path: str, frames_required: int) -> None:
         self.obj_prim_path = prim_path
         self.obj_prim = rep.get.prim_at_path(prim_path)
@@ -46,14 +51,19 @@ class Randomizer:
     def obj_position(self):
         position, _ = xforms.get_world_pose(self.obj_prim_path)
         return position
-
-    def trigger_obj_pose(self):
-        with self.obj_trigger:
-            rep.randomizer._randomize_camera_pose() # type: ignore
+    
+    @property
+    def camera_position_range(self):
+        return [self.obj_position + Randomizer.camera_position_domain_lower,
+                self.obj_position + Randomizer.camera_position_domain_upper]
 
     def trigger_camera(self):
         with self.camera_trigger:
             rep.randomizer._randomize_camera_pose()   # type: ignore
+
+    def trigger_obj_pose(self):
+        with self.obj_trigger:
+            rep.randomizer._randomize_obj_pose() # type: ignore
 
     def trigger_light(self):
         with self.light_trigger:
@@ -62,9 +72,9 @@ class Randomizer:
     def _randomize_obj_pose(self) -> rep.scripts.utils.ReplicatorItem:
         with self.obj_prim:
             # rep.randomizer.color(colors=rep.distribution.uniform((0.01, 0.01, 0.01), (1.0, 1.0, 1.0)))
-            rep.modify.pose(position=rep.distribution.uniform((-15.0, -2.0, 0.0), (-5.0, 20.0, 0.0)),
+            rep.modify.pose(position=rep.distribution.uniform((-1.0, -1.0, 0.0), (1.0, 1.0, 0.0)),
                             rotation=rep.distribution.uniform((0, 0, 0), (0, 0, 360)),  # 度
-                            scale=rep.distribution.uniform((0.8, 0.8, 0.8), (1.2, 1.2, 1.2))
+                            scale=rep.distribution.uniform((0.9, 0.9, 0.9), (1.1, 1.1, 1.1))
                         )
         return self.obj_prim.node # type: ignore
     
@@ -73,7 +83,7 @@ class Randomizer:
             metallic=rep.distribution.uniform(0.0, 1.0),
             roughness=rep.distribution.uniform(0.0, 1.0),
             diffuse=rep.distribution.uniform((0, 0, 0), (1, 1, 1)),
-            count=100,
+            count=100
         )
         with self.obj_prim:
             rep.randomizer.materials(mats)
@@ -82,7 +92,7 @@ class Randomizer:
     def _randomize_camera_pose(self) -> rep.scripts.utils.ReplicatorItem:
         with self.camera:
             rep.modify.pose(
-                position=rep.distribution.uniform(*self.camera_position_domain),
+                position=rep.distribution.uniform(*self.camera_position_range),
                 look_at=self.obj_prim
             )
         return self.camera.node # type: ignore

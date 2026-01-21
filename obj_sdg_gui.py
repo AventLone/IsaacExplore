@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import multiprocessing
-from multiprocessing.synchronize import Event
 import queue
 import time
 
@@ -22,86 +21,14 @@ def main_task():
     
     print("Main task is over.")
 
-# class App(tk.Tk):
-#     def __init__(self):
-#         super().__init__()
-#         self.title("Task Manager 2026")
-#         self.geometry("350x150")
-
-#         ttk.Label(self, text="Generating Progress:").pack(pady=(15, 5))
-
-#         # 1. Progress Bar Setup
-#         self.progress_var = tk.DoubleVar()
-#         self.pb = ttk.Progressbar(self, variable=self.progress_var, maximum=100, length=250)
-#         self.pb.pack(pady=(0, 15))
-        
-#         # 2. Control Button
-#         self.btn = ttk.Button(self, text="Start Heavy Task", cursor="hand2", command=self.start_task)
-#         self.btn.pack()
-
-#         # 3. Inter-process Communication
-#         # self.queue = multiprocessing.Queue()
-
-#         self.protocol("WM_DELETE_WINDOW", self._on_close)
-
-#     def start_task(self):
-#         start_signal.set()
-#         self.btn.config(state="disabled")
-#         self.progress_var.set(0) # Ensure it starts at zero
-        
-#         # Start the background process
-#         # p = multiprocessing.Process(target=background_worker, args=(self.queue,))
-#         # p.start()
-        
-#         # Start checking the queue for updates
-#         self.check_queue()
-
-#     def check_queue(self):
-#         """
-#         Monitors the queue and handles completion logic.
-#         """
-#         try:
-#             while True:
-#                 # value = self.queue.get_nowait()
-#                 value = progress_queue.get_nowait()
-#                 self.progress_var.set(value)
-                
-#                 # Check if task is finished
-#                 if value >= 100:
-#                     self._on_task_complete()
-#                     return
-                
-#         # except multiprocessing.queues.Empty:
-#         except queue.Empty:
-#             # Task still running; check again in 100ms
-#             self.after(100, self.check_queue)
-
-#     def _on_task_complete(self):
-#         start_signal.clear()
-#         """Actions to perform when the task is done."""
-#         # Pop out the info window
-#         messagebox.showinfo("Success", "Task completed successfully!")
-        
-#         # Clear the progress bar
-#         self.progress_var.set(0)
-        
-#         # Re-enable the button
-#         self.btn.config(state="normal")
-
-#     def _on_close(self):
-#         start_signal.set()
-#         shutdown_flag.set()
-#         self.quit()
-#         self.destroy()
-
 from gui.window import Window
 import tkinter as tk
-from tkinter import filedialog, ttk, font
-import multiprocessing
+from tkinter import ttk
 
 class ObjGUI(Window):
     def __init__(self) -> None:
         super().__init__("Obj SDG")
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         # 1. Chouse the environments directories
         self.env_entry = self.create_dir_browser("Environments Path:", pady=(13, 0))
@@ -130,7 +57,7 @@ class ObjGUI(Window):
         data_num_label = ttk.Label(dropdown_row, text="Data Number:")
         data_num_label.pack(side="left", padx=(150, 0))
 
-        btn = ttk.Button(dropdown_row, text="Generate", cursor="hand2", command=self.notify)
+        btn = ttk.Button(dropdown_row, text="Generate", cursor="hand2", command=self.start_task)
         btn.pack(side="right", padx=(20, 0))
 
         entry = ttk.Entry(dropdown_row, font=("Arial", 14), width=10)
@@ -152,8 +79,58 @@ class ObjGUI(Window):
                              orient='horizontal', mode='determinate')
         pb.pack(fill="x", padx=(10, 30))
 
+    def _on_close(self):
+        start_signal.set()
+        shutdown_flag.set()
+        self.quit()
+        self.destroy()
+
+    def start_task(self):
+        start_signal.set()
+        # self.btn.config(state="disabled")
+        self.progress_var.set(0) # Ensure it starts at zero
+        
+        # Start the background process
+        # p = multiprocessing.Process(target=background_worker, args=(self.queue,))
+        # p.start()
+        
+        # Start checking the queue for updates
+        self.check_queue()
+
+    def check_queue(self):
+        """
+        Monitors the queue and handles completion logic.
+        """
+        try:
+            while True:
+                # value = self.queue.get_nowait()
+                value = progress_queue.get_nowait()
+                self.progress_var.set(value)
+                
+                # Check if task is finished
+                if value >= 100:
+                    self._on_task_complete()
+                    return
+                
+        # except multiprocessing.queues.Empty:
+        except queue.Empty:
+            # Task still running; check again in 100ms
+            self.after(100, self.check_queue)
+
+    def _on_task_complete(self):
+        start_signal.clear()
+        """Actions to perform when the task is done."""
+        # Pop out the info window
+        messagebox.showinfo("Success", "Task completed successfully!")
+        
+        # Clear the progress bar
+        self.progress_var.set(0)
+        
+        # Re-enable the button
+        # self.btn.config(state="normal")
+
+
 if __name__ == "__main__":
-    # Required for Windows & macOS multiprocessing stability
     app = ObjGUI()
     p = multiprocessing.Process(target=app.mainloop)
     p.start()
