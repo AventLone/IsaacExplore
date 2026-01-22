@@ -1,9 +1,21 @@
+from isaacsim.simulation_app import SimulationApp
+simu_app = SimulationApp({"renderer": "RayTracedLighting", "headless": True})
+
+from isaacsim.core.utils import stage, prims
+from omni.kit.async_engine import run_coroutine
+from sdg import Randomizer, Generator
+from pathlib import Path
+
+def find_usds(dir: str) -> list[str]:
+    folder = Path(dir)
+    usd_files = []
+    for usd_file in folder.rglob("*.usd"):
+        usd_files.append(str(usd_file))
+    return usd_files
+
 import tkinter as tk
 from tkinter import ttk, messagebox
-import multiprocessing
-import queue
-import time
-
+import multiprocessing, queue, time
 from dataclasses import dataclass
 from typing import Literal
 import os
@@ -51,25 +63,43 @@ configs_queue = multiprocessing.Queue()
 shutdown_flag, start_signal = multiprocessing.Event(), multiprocessing.Event()
 
 def main_task():
-    # while not shutdown_flag.is_set():
     while True:
         time.sleep(0.01)
         start_signal.wait()
         if shutdown_flag.is_set():
             break
         
-        config = configs_queue.get_nowait()
-        print(config)
+        configs: SDGConfig = configs_queue.get_nowait()
 
-        total_steps = 100
-        for i in range(1, total_steps + 1):
-            time.sleep(0.05)  # Simulate actual work
-            progress_queue.put(i)      # Send current progress to UI
-    
-    print("Main task is over.")
+        environments_pool = find_usds(configs.environments_path)
+        objs_pool = find_usds(configs.objects_path)
+        save_at = configs.save_at
+        required_num = configs.target_number
+
+        progress = 0
+        def send_progress():
+            nonlocal progress
+            global progress_queue
+            progress += 1
+            progress_queue.put(progress)
+
+        # async def generate_all():
+        for environment in environments_pool:
+            created_stage = stage.create_new_stage()
+            prims.create_prim("/World")
+            stage.add_reference_to_stage(usd_path=environment,prim_path="/World/Environment")
+            obj_prim_path = "/World/Obj"
+
+            for obj in objs_pool:
+                stage.add_reference_to_stage(usd_path=obj, prim_path=obj_prim_path)
+                randomizer = Randomizer(obj_prim_path, required_num)
+                generator = Generator(randomizer, save_path=configs.save_at)
+                generator.generate(send_progress)
+
+            stage.close_stage()
+    simu_app.close()
 
 from gui.window import Window
-import tkinter as tk
 from tkinter import ttk
 
 class ObjGUI(Window):
@@ -113,8 +143,8 @@ class ObjGUI(Window):
         btn.pack(side="right", padx=(20, 0))
         self.button_list.append(btn)
 
-        self.entry = ttk.Entry(dropdown_row, font=("Arial", 14), width=10)
-        self.entry.pack(side="right")
+        self.target_num_entry = ttk.Entry(dropdown_row, font=("Arial", 14), width=10)
+        self.target_num_entry.pack(side="right")
 
         # 3. Progress Bar Setup
         progress_row = ttk.Frame(self, padding=10)
@@ -140,7 +170,7 @@ class ObjGUI(Window):
         # Check all the configurations
         try:
             configs = SDGConfig(self.env_entry.get(), self.obj_entry.get(), self.saveat_entry.get(),
-                                self.generation_types[self.selected_option.get()], int(self.entry.get()))
+                                self.generation_types[self.selected_option.get()], int(self.target_num_entry.get()))
             configs_queue.put(configs)
         except Exception:
             messagebox.showerror("Fail", "Recheck your configs!")
@@ -165,6 +195,7 @@ class ObjGUI(Window):
             while True:
                 # value = self.queue.get_nowait()
                 value = progress_queue.get_nowait()
+                value = round(value / int(self.target_num_entry.get()) * 100)
                 self.progress_var.set(value)
                 
                 # Check if task is finished

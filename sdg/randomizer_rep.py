@@ -47,6 +47,8 @@ class Randomizer:
         self.obj_trigger = rep.trigger.on_frame(max_execs=frames_required // 10, interval=10, rt_subframes=16)
         self.light_trigger = rep.trigger.on_frame(max_execs=frames_required // 20, interval=20, rt_subframes=16)
 
+        self.generated_num = 0
+
     @property
     def obj_position(self):
         position, _ = xforms.get_world_pose(self.obj_prim_path)
@@ -57,8 +59,11 @@ class Randomizer:
         return [self.obj_position + Randomizer.camera_position_domain_lower,
                 self.obj_position + Randomizer.camera_position_domain_upper]
 
-    def trigger_camera(self):
+    def trigger_camera(self, callback=None):
         with self.camera_trigger:
+            # self.generated_num += 1
+            if callback is not None:
+                callback()
             rep.randomizer._randomize_camera_pose()   # type: ignore
 
     def trigger_obj_pose(self):

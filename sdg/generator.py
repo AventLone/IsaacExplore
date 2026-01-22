@@ -126,12 +126,26 @@ class Generator:
     #     await rep.orchestrator.wait_until_complete_async()
     #     self._writer.detach()
 
-    def generate(self):
+    def generate(self, callback):
         self._randomizer.trigger_obj_pose()
-        self._randomizer.trigger_camera()
+        self._randomizer.trigger_camera(callback)
         self._randomizer.trigger_light()
 
         rep.orchestrator.run()
         rep.orchestrator.wait_until_complete()
+
+        self._writer.detach()
+        self._render_product.destroy()
+
+    async def generate_async(self, callback):
+        self._randomizer.trigger_obj_pose()
+        self._randomizer.trigger_camera(callback)
+        self._randomizer.trigger_light()
+
+        await rep.orchestrator.run_async()
+        await rep.orchestrator.wait_until_complete_async()
+
+        self._writer.detach()
+        self._render_product.destroy()
 
 
