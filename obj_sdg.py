@@ -3,6 +3,14 @@ simu_app = SimulationApp({"renderer": "RayTracedLighting", "headless": True})
 
 from isaacsim.core.utils import stage, prims
 from sdg import Randomizer, Generator
+from pathlib import Path
+
+def find_usds(dir: str) -> list[str]:
+    folder = Path(dir)
+    usd_files = []
+    for usd_file in folder.rglob("*.usd"):
+        usd_files.append(str(usd_file))
+    return usd_files
 
 created_stage = stage.create_new_stage()
 prims.create_prim("/World")
@@ -21,8 +29,7 @@ randomizer = Randomizer(obj_prim_path, 10)
 generator = Generator(randomizer, save_path="/home/avent/Desktop/generated_data")
 generator.generate()
 
-# while simu_app.is_running():
-#     simu_app.update()
+stage.close_stage()
 
 simu_app.close()
 

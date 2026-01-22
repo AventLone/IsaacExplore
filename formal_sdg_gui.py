@@ -1,9 +1,20 @@
+from isaacsim.simulation_app import SimulationApp
+simu_app = SimulationApp({"renderer": "RayTracedLighting", "headless": True})
+
+from isaacsim.core.utils import stage, prims
+from sdg import Randomizer, Generator
+from pathlib import Path
+
+def find_usds(dir: str) -> list[str]:
+    folder = Path(dir)
+    usd_files = []
+    for usd_file in folder.rglob("*.usd"):
+        usd_files.append(str(usd_file))
+    return usd_files
+
 import tkinter as tk
 from tkinter import ttk, messagebox
-import multiprocessing
-import queue
-import time
-
+import multiprocessing, queue, time
 from dataclasses import dataclass
 from typing import Literal
 import os
@@ -51,25 +62,40 @@ configs_queue = multiprocessing.Queue()
 shutdown_flag, start_signal = multiprocessing.Event(), multiprocessing.Event()
 
 def main_task():
-    # while not shutdown_flag.is_set():
     while True:
         time.sleep(0.01)
         start_signal.wait()
         if shutdown_flag.is_set():
             break
         
-        config = configs_queue.get_nowait()
-        print(config)
+        configs: SDGConfig = configs_queue.get_nowait()
 
-        total_steps = 100
-        for i in range(1, total_steps + 1):
-            time.sleep(0.05)  # Simulate actual work
-            progress_queue.put(i)      # Send current progress to UI
-    
+        environments_pool = find_usds(configs.environments_path)
+        objs_pool = find_usds(configs.objects_path)
+
+        for environment in environments_pool:
+            created_stage = stage.create_new_stage()
+            prims.create_prim("/World")
+            stage.add_reference_to_stage(usd_path=environment,prim_path="/World/Environment")
+            obj_prim_path = "/World/Obj"
+
+            for obj in objs_pool:
+                stage.add_reference_to_stage(usd_path=obj, prim_path=obj_prim_path)
+                randomizer = Randomizer(obj_prim_path, 10)
+                generator = Generator(randomizer, save_path="/home/avent/Desktop/generated_data")
+                generator.generate()
+
+            stage.close_stage()
+
+        # total_steps = 100
+        # for i in range(1, total_steps + 1):
+        #     time.sleep(0.05)  # Simulate actual work
+        #     progress_queue.put(i)      # Send current progress to UI
+    simu_app.close()
     print("Main task is over.")
 
+
 from gui.window import Window
-import tkinter as tk
 from tkinter import ttk
 
 class ObjGUI(Window):

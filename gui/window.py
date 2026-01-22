@@ -18,6 +18,13 @@ class Window(tk.Tk):
         default_font.configure(family="Arial", size=14)
         self.option_add("*TCombobox*Listbox*Font", "Arial 14")
 
+        # Set msgbox's size
+        self.option_add('*Dialog.msg.font', 'Helvetica 15')
+        self.option_add('*Dialog.msg.width', 25)  # Character width
+        self.option_add('*Dialog.msg.wrapLength', '4i')  # Wrap after 4 inches
+
+        self.button_list: list[ttk.Button] = []
+
     def create_dir_browser(self, label_text, pady=6):
         def choose_dir(entry_widget: ttk.Entry):
             path = filedialog.askdirectory()
@@ -36,6 +43,7 @@ class Window(tk.Tk):
 
         btn = ttk.Button(row, text="Browse", cursor="hand2", command=lambda e=entry: choose_dir(e))
         btn.pack(side="right", padx=(10, 20))
+        self.button_list.append(btn)
 
         return entry
 
