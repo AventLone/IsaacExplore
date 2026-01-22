@@ -110,25 +110,15 @@ class Generator:
 
         self._writer = rep.writers.get("BasicWriter")
 
-        # data_save_dir = os.path.join(os.getcwd(), "data/semantic_segmentation")
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
         save_at = f"generated_data/{timestamp}" if save_path is None else f"{save_path}/{timestamp}"
         data_save_dir = os.path.join(os.getcwd(), save_at)
         self._writer.initialize(output_dir=data_save_dir, rgb=True, semantic_segmentation=True)
         self._writer.attach(self._render_product, trigger=self._randomizer.camera_trigger)
 
-    # async def generate(self):
-    #     self._randomizer.trigger_camera()
-    #     self._randomizer.trigger_obj_pose()
-    #     self._randomizer.trigger_light()
-
-    #     await rep.orchestrator.run_async()
-    #     await rep.orchestrator.wait_until_complete_async()
-    #     self._writer.detach()
-
-    def generate(self, callback):
+    def generate(self):
         self._randomizer.trigger_obj_pose()
-        self._randomizer.trigger_camera(callback)
+        self._randomizer.trigger_camera()
         self._randomizer.trigger_light()
 
         rep.orchestrator.run()
@@ -137,15 +127,15 @@ class Generator:
         self._writer.detach()
         self._render_product.destroy()
 
-    async def generate_async(self, callback):
-        self._randomizer.trigger_obj_pose()
-        self._randomizer.trigger_camera(callback)
-        self._randomizer.trigger_light()
+    # async def generate_async(self, callback):
+    #     self._randomizer.trigger_obj_pose()
+    #     self._randomizer.trigger_camera()
+    #     self._randomizer.trigger_light()
 
-        await rep.orchestrator.run_async()
-        await rep.orchestrator.wait_until_complete_async()
+    #     await rep.orchestrator.run_async()
+    #     await rep.orchestrator.wait_until_complete_async()
 
-        self._writer.detach()
-        self._render_product.destroy()
+    #     self._writer.detach()
+    #     self._render_product.destroy()
 
 

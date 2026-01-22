@@ -73,19 +73,12 @@ def main_task():
 
         environments_pool = find_usds(configs.environments_path)
         objs_pool = find_usds(configs.objects_path)
-        save_at = configs.save_at
         required_num = configs.target_number
 
         progress = 0
-        def send_progress():
-            nonlocal progress
-            global progress_queue
-            progress += 1
-            progress_queue.put(progress)
-
-        # async def generate_all():
+        progress_all = len(environments_pool) * len(objs_pool)
         for environment in environments_pool:
-            created_stage = stage.create_new_stage()
+            stage.create_new_stage()
             prims.create_prim("/World")
             stage.add_reference_to_stage(usd_path=environment,prim_path="/World/Environment")
             obj_prim_path = "/World/Obj"
@@ -94,9 +87,13 @@ def main_task():
                 stage.add_reference_to_stage(usd_path=obj, prim_path=obj_prim_path)
                 randomizer = Randomizer(obj_prim_path, required_num)
                 generator = Generator(randomizer, save_path=configs.save_at)
-                generator.generate(send_progress)
+                generator.generate()
+
+                progress += 1
+                progress_queue.put(round(progress / progress_all * 100))
 
             stage.close_stage()
+
     simu_app.close()
 
 from gui.window import Window
@@ -117,7 +114,7 @@ class ObjGUI(Window):
         dropdown_row.pack(fill="x", pady=20, padx=10)
 
         lbl = ttk.Label(dropdown_row, text="Data Type:")
-        lbl.pack(side="left")
+        lbl.pack(side="left", padx=(0, 3))
 
         options = ["2D BBox", "Semantic Segmentation", "Instance Segmentation"]   # Define the options list
         self.generation_types = {"2D BBox" : "2d_bbox", 
@@ -139,7 +136,14 @@ class ObjGUI(Window):
         data_num_label = ttk.Label(dropdown_row, text="Data Number:")
         data_num_label.pack(side="left", padx=(150, 0))
 
-        btn = ttk.Button(dropdown_row, text="Generate", cursor="hand2", command=self.start_task)
+        style = ttk.Style()
+        style.configure(
+            "Red.TButton",
+            foreground="green",
+            # background="green",
+            # padding=6
+        )
+        btn = ttk.Button(dropdown_row, text="Generate", cursor="hand2", style="Red.TButton",command=self.start_task)
         btn.pack(side="right", padx=(20, 0))
         self.button_list.append(btn)
 
@@ -161,8 +165,8 @@ class ObjGUI(Window):
         pb.pack(fill="x", padx=(10, 30))
 
     def _on_close(self):
-        start_signal.set()
         shutdown_flag.set()
+        start_signal.set()
         self.quit()
         self.destroy()
 
@@ -177,12 +181,14 @@ class ObjGUI(Window):
             return
 
         start_signal.set()
+
         # Disable all control item
         self.combobox.config(state="disabled")
         for btn in self.button_list:
             btn.config(state="disabled")
 
-        self.progress_var.set(0) # Ensure it starts at zero
+        start_signal.clear()
+        # self.progress_var.set(0) # Ensure it starts at zero
         
         # Start checking the queue for updates
         self.check_queue()
@@ -193,9 +199,7 @@ class ObjGUI(Window):
         """
         try:
             while True:
-                # value = self.queue.get_nowait()
                 value = progress_queue.get_nowait()
-                value = round(value / int(self.target_num_entry.get()) * 100)
                 self.progress_var.set(value)
                 
                 # Check if task is finished
@@ -210,12 +214,11 @@ class ObjGUI(Window):
 
     def _on_task_complete(self):
         start_signal.clear()
-        """Actions to perform when the task is done."""
-        # Pop out the info window
-        messagebox.showinfo("Success", "Generation is complete!")
-        
-        # Clear the progress bar
-        self.progress_var.set(0)
+        """
+        Actions to perform when the task is done.
+        """
+        messagebox.showinfo("Success", "Generation is complete!")   # Pop out the info window
+        self.progress_var.set(0)   # Clear the progress bar
         
         # Re-enable the button
         self.combobox.config(state="normal")

@@ -1,31 +1,6 @@
 import omni.replicator.core as rep
 from isaacsim.core.utils import xforms
 import numpy as np
-# import random
-
-# class ObjRandomizer:
-#     def __init__(self, obj_prim_path) -> None:
-#         self._obj_prim_path = obj_prim_path
-#         self.rep_obj_prim = rep.get.prim_at_path(obj_prim_path)
-#         self._mat_pool = rep.create.material_omnipbr(diffuse=rep.distribution.uniform((0.2, 0.1, 0.3), (0.6, 0.6, 0.7)),
-#                                                      roughness=random.uniform(0.1, 0.9),
-#                                                      metallic=random.uniform(0.1, 0.9),
-#                                                      count=100)
-        
-#     @property
-#     def obj_position(self):
-#         position, quat = xforms.get_world_pose(self._obj_prim_path)
-#         return position
-    
-#     def _randomize_obj(self) -> rep.scripts.utils.ReplicatorItem:
-#         with self.rep_obj_prim:
-#             rep.randomizer.color(colors=rep.distribution.uniform((0.01, 0.01, 0.01), (1.0, 1.0, 1.0)))
-#             rep.modify.pose(position=rep.distribution.uniform((-15.0, -2.0, 0.0), (-5.0, 20.0, 0.0)),
-#                             rotation=rep.distribution.uniform((0, 0, 0), (0, 0, 360)),  # 度
-#                             scale=rep.distribution.uniform((0.8, 0.8, 0.8), (1.2, 1.2, 1.2))
-#                         )
-            
-#         return self.rep_obj_prim.node # type: ignore
     
 class Randomizer:
     camera_position_domain_lower = np.array([-5.0, -5.0, 0.06])
@@ -59,11 +34,8 @@ class Randomizer:
         return [self.obj_position + Randomizer.camera_position_domain_lower,
                 self.obj_position + Randomizer.camera_position_domain_upper]
 
-    def trigger_camera(self, callback=None):
+    def trigger_camera(self):
         with self.camera_trigger:
-            # self.generated_num += 1
-            if callback is not None:
-                callback()
             rep.randomizer._randomize_camera_pose()   # type: ignore
 
     def trigger_obj_pose(self):
