@@ -19,4 +19,4 @@ unset __mamba_setup
 mamba activate IsaacSim
 source /home/avent/Apps/IsaacSim5.1/setup_conda_env.sh
 
-python /home/avent/Desktop/PythonProjects/IsaacExplore/formal_sdg_gui.py
+python /home/avent/Desktop/PythonProjects/IsaacExplore/obj_sdg_gui.py

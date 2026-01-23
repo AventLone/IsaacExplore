@@ -15,7 +15,7 @@ def find_usds(dir: str) -> list[str]:
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import multiprocessing, queue, time
+import multiprocessing, queue
 from dataclasses import dataclass
 from typing import Literal
 import os
@@ -64,7 +64,6 @@ shutdown_flag, start_signal = multiprocessing.Event(), multiprocessing.Event()
 
 def main_task():
     while True:
-        time.sleep(0.01)
         start_signal.wait()
         if shutdown_flag.is_set():
             break
@@ -77,20 +76,25 @@ def main_task():
 
         progress = 0
         progress_all = len(environments_pool) * len(objs_pool)
+        OBJ_PRIM_PATH = "/World/Obj"
         for environment in environments_pool:
             stage.create_new_stage()
             prims.create_prim("/World")
             stage.add_reference_to_stage(usd_path=environment,prim_path="/World/Environment")
-            obj_prim_path = "/World/Obj"
-
+            
             for obj in objs_pool:
-                stage.add_reference_to_stage(usd_path=obj, prim_path=obj_prim_path)
-                randomizer = Randomizer(obj_prim_path, required_num)
+                # Add the obj usd into the stage as a reference
+                stage.add_reference_to_stage(usd_path=obj, prim_path=OBJ_PRIM_PATH)
+
+                # Generate the dataset
+                randomizer = Randomizer(OBJ_PRIM_PATH, required_num)
                 generator = Generator(randomizer, save_path=configs.save_at)
                 generator.generate()
 
                 progress += 1
                 progress_queue.put(round(progress / progress_all * 100))
+
+                prims.delete_prim(OBJ_PRIM_PATH)   # Remove the obj from the stage
 
             stage.close_stage()
 
@@ -137,12 +141,7 @@ class ObjGUI(Window):
         data_num_label.pack(side="left", padx=(150, 0))
 
         style = ttk.Style()
-        style.configure(
-            "Red.TButton",
-            foreground="green",
-            # background="green",
-            # padding=6
-        )
+        style.configure("Red.TButton", foreground="green")
         btn = ttk.Button(dropdown_row, text="Generate", cursor="hand2", style="Red.TButton",command=self.start_task)
         btn.pack(side="right", padx=(20, 0))
         self.button_list.append(btn)
@@ -207,7 +206,6 @@ class ObjGUI(Window):
                     self._on_task_complete()
                     return
                 
-        # except multiprocessing.queues.Empty:
         except queue.Empty:
             # Task still running; check again in 100ms
             self.after(100, self.check_queue)

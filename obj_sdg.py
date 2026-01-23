@@ -1,5 +1,7 @@
 from isaacsim.simulation_app import SimulationApp
-simu_app = SimulationApp({"renderer": "RayTracedLighting", "headless": True})
+# "RayTracedLighting" → RTX Real-Time
+# "PathTracing" → Path Tracer
+simu_app = SimulationApp({"renderer": "PathTracing", "headless": True})
 
 from isaacsim.core.utils import stage, prims
 from sdg import Randomizer, Generator
