@@ -2,6 +2,7 @@ from isaacsim.simulation_app import SimulationApp
 # "RayTracedLighting" → RTX Real-Time
 # "PathTracing" → Path Tracer
 simu_app = SimulationApp({"renderer": "PathTracing", "headless": True})
+# simu_app.run_coroutine()
 
 from isaacsim.core.utils import stage, prims
 from sdg import Randomizer, Generator
@@ -27,7 +28,7 @@ stage.add_reference_to_stage(
     prim_path=obj_prim_path
 )
 
-randomizer = Randomizer(obj_prim_path, 10)
+randomizer = Randomizer(obj_prim_path, 100)
 generator = Generator(randomizer, save_path="/home/avent/Desktop/generated_data")
 generator.generate()
 
