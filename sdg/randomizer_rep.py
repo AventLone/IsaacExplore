@@ -27,8 +27,8 @@ class Randomizer:
 
         self.camera_trigger = rep.trigger.on_frame(max_execs=frames_required, interval=1, rt_subframes=16)
         self.obj_pose_trigger = rep.trigger.on_frame(max_execs=frames_required // 10, interval=10, rt_subframes=16)
-        self.obj_apperance_trigger = rep.trigger.on_frame(max_execs=frames_required // 3, interval=3, rt_subframes=16)
-        self.light_trigger = rep.trigger.on_frame(max_execs=frames_required // 20, interval=20, rt_subframes=16)
+        self.obj_apperance_trigger = rep.trigger.on_frame(max_execs=frames_required // 5, interval=5, rt_subframes=16)
+        self.light_trigger = rep.trigger.on_frame(max_execs=frames_required // 15, interval=15, rt_subframes=16)
 
     @property
     def obj_position(self):
@@ -69,17 +69,6 @@ class Randomizer:
         with meshes:
             rep.randomizer.materials(self.materials)
         return meshes.node   # type: ignore
-        
-    def randomize_material(self) -> rep.scripts.utils.ReplicatorItem:
-        mats = rep.create.material_omnipbr(
-            metallic=rep.distribution.uniform(0.0, 1.0),
-            roughness=rep.distribution.uniform(0.0, 1.0),
-            diffuse=rep.distribution.uniform((0, 0, 0), (1, 1, 1)),
-            count=100
-        )
-        with self.obj_prim:
-            rep.randomizer.materials(mats)
-        return self.obj_prim.node # type: ignore
 
     def _randomize_camera_pose(self) -> rep.scripts.utils.ReplicatorItem:
         with self.camera:
@@ -90,11 +79,9 @@ class Randomizer:
         return self.camera.node # type: ignore
 
     def _randomize_light(self) -> rep.scripts.utils.ReplicatorItem:
-        lights = rep.create.light(
-            light_type="Sphere",
-            temperature=rep.distribution.uniform(3000, 8000),
-            intensity=rep.distribution.uniform(10000, 300000),
-            position=rep.distribution.uniform(*self.camera_position_range),
-            scale=1, count=1
-        )
+        lights = rep.get.prims(prim_types=["RectLight", "SphereLight", "DomeLight"])
+        with lights:
+            rep.modify.attribute("intensity", rep.distribution.uniform(1000, 80000))
+            # rep.modify.attribute("temperature", rep.distribution.uniform(3000, 8000))
+            rep.modify.attribute("color", rep.distribution.uniform((0.5, 0.5, 0.5), (1.0, 1.0, 1.0)))
         return lights.node # type: ignore
