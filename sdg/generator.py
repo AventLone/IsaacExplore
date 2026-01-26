@@ -16,7 +16,7 @@ class Generator:
     # Set DLSS to Quality mode (2) for best SDG results (Options: 0 (Performance), 1 (Balanced), 2 (Quality), 3 (Auto)
     # carb.settings.get_settings().set("rtx/post/dlss/execMode", 2)   # DLAA
 
-    def __init__(self, randomizer: Randomizer, img_resolution=(1024, 1024), save_path=None) -> None:
+    def __init__(self, randomizer: Randomizer, annotation_typ: dict, img_resolution=(1024, 1024), save_path=None) -> None:
         self._randomizer = randomizer
         self._render_product = rep.create.render_product(camera=self._randomizer.camera, resolution=img_resolution)
         self._writer = rep.writers.get("BasicWriter")
@@ -24,7 +24,8 @@ class Generator:
         timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
         save_at = f"generated_data/{timestamp}" if save_path is None else f"{save_path}/{timestamp}"
         data_save_dir = os.path.join(os.getcwd(), save_at)
-        self._writer.initialize(output_dir=data_save_dir, rgb=True, semantic_segmentation=True)
+        # self._writer.initialize(output_dir=data_save_dir, rgb=True, semantic_segmentation=True)
+        self._writer.initialize(output_dir=data_save_dir, rgb=True, **annotation_typ)
         self._writer.attach(self._render_product, trigger=self._randomizer.camera_trigger)
 
     def generate(self):

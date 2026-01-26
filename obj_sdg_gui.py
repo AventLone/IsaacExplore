@@ -25,7 +25,7 @@ class SDGConfig:
     environments_path: str
     objects_path: str
     save_at: str
-    data_type: Literal["2d_bbox", "semantic_segmentation", "instance_segmentation"]
+    annotation_type: dict
     target_number: int
 
     def __post_init__(self):
@@ -50,8 +50,10 @@ class SDGConfig:
             raise ValueError(f"save_at parent directory does not exist: {parent}")
 
         # data_type check (Literal is only for type checkers)
-        allowed = {"2d_bbox", "semantic_segmentation", "instance_segmentation"}
-        if self.data_type not in allowed:
+        allowed = [{"bounding_box_2d_loose": True},
+                   {"semantic_segmentation": True}, 
+                   {"instance_segmentaion": True}]
+        if self.annotation_type not in allowed:
             raise ValueError(f"data_type must be one of {allowed}")
 
         # target_number check
@@ -88,7 +90,7 @@ def main_task():
 
                 # Generate the dataset
                 randomizer = Randomizer(OBJ_PRIM_PATH, required_num)
-                generator = Generator(randomizer, save_path=configs.save_at)
+                generator = Generator(randomizer, configs.annotation_type, save_path=configs.save_at)
                 generator.generate()
 
                 progress += 1
@@ -121,9 +123,9 @@ class ObjGUI(Window):
         lbl.pack(side="left", padx=(0, 3))
 
         options = ["2D BBox", "Semantic Segmentation", "Instance Segmentation"]   # Define the options list
-        self.generation_types = {"2D BBox" : "2d_bbox", 
-                                 "Semantic Segmentation" : "semantic_segmentation",
-                                 "Instance Segmentation" : "instance_segmentaion"}
+        self.annotation_types = {"2D BBox": {"bounding_box_2d_loose": True},
+                                 "Semantic Segmentation": {"semantic_segmentation": True},
+                                 "Instance Segmentation": {"instance_segmentaion": True}}
 
         self.selected_option = tk.StringVar()    # Create a StringVar to store the selected value
         self.combobox = ttk.Combobox(dropdown_row,       # Create the Combobox
@@ -173,7 +175,7 @@ class ObjGUI(Window):
         # Check all the configurations
         try:
             configs = SDGConfig(self.env_entry.get(), self.obj_entry.get(), self.saveat_entry.get(),
-                                self.generation_types[self.selected_option.get()], int(self.target_num_entry.get()))
+                                self.annotation_types[self.selected_option.get()], int(self.target_num_entry.get()))
             configs_queue.put(configs)
         except Exception:
             messagebox.showerror("Fail", "Recheck your configs!")

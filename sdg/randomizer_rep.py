@@ -3,7 +3,7 @@ from isaacsim.core.utils import xforms, stage
 import numpy as np
     
 class Randomizer:
-    camera_position_domain_lower = np.array([-3.0, -3.0, 0.06])
+    camera_position_domain_lower = np.array([-3.0, -3.0, 0.1])
     camera_position_domain_upper = np.array([3.0, 3.0, 2.0])
 
     def __init__(self, prim_path: str, frames_required: int) -> None:
@@ -65,7 +65,7 @@ class Randomizer:
         return self.obj_prim.node # type: ignore
     
     def _randomize_obj_apperance(self) -> rep.scripts.utils.ReplicatorItem:
-        meshes = rep.get.prims(path_pattern=f"{self.obj_prim_path}/pallet_asm/*", prim_types=["Mesh", "GeomSubset"])
+        meshes = rep.get.prims(path_pattern=f"{self.obj_prim_path}/*", prim_types=["Mesh", "GeomSubset"])
         with meshes:
             rep.randomizer.materials(self.materials)
         return meshes.node   # type: ignore
