@@ -32,7 +32,7 @@ stage.add_reference_to_stage(
 randomizer = Randomizer(obj_prim_path, 100)
 annotation_types = {"2D BBox": {"bounding_box_2d_loose": True},
                     "Semantic Segmentation": {"semantic_segmentation": True},
-                    "Instance Segmentation": {"instance_segmentaion": True}}
+                    "Instance Segmentation": {"instance_segmentation": True}}
 generator = Generator(randomizer, annotation_types["2D BBox"], save_path="/home/avent/Desktop/generated_data")
 generator.generate()
 
