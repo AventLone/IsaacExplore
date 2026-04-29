@@ -25,15 +25,17 @@ stage.add_reference_to_stage(
 )
 obj_prim_path = "/World/Obj"
 stage.add_reference_to_stage(
-    usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Props/wraped_loads/load_3.usd",
+    usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Props/pallet_eu.usd",
     prim_path=obj_prim_path
 )
 
-randomizer = Randomizer(obj_prim_path, 100)
+randomizer = Randomizer(obj_prim_path, 10000)
 annotation_types = {"2D BBox": {"bounding_box_2d_loose": True},
                     "Semantic Segmentation": {"semantic_segmentation": True},
                     "Instance Segmentation": {"instance_segmentation": True}}
-generator = Generator(randomizer, annotation_types["Instance Segmentation"], save_path="/home/avent/Desktop/generated_data")
+generator = Generator(randomizer, annotation_types["Instance Segmentation"],
+                      img_resolution=(432, 432),
+                      save_path="/home/avent/Desktop/generated_data")
 generator.generate()
 
 stage.close_stage()

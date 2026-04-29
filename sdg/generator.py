@@ -1,27 +1,16 @@
 import omni.replicator.core as rep
 import os, carb.settings
+from omni.replicator.core import CocoWriter, AnnotatorRegistry
 from datetime import datetime
-from .randomizer_rep import Randomizer
-
-import omni.replicator.core as rep
-import os
-from omni.replicator.core import CocoWriter
-
-import os
 from pathlib import Path
-import numpy as np
-
-from omni.replicator.core import AnnotatorRegistry
 from pycocotools import mask as mask_utils
+import numpy as np
+from .randomizer_rep import Randomizer
 
 
 class CocoInstanceSegWriter(CocoWriter):
-    def __init__(self, output_dir: str, semantic_types: rep.List[str] = None, 
-                 coco_categories: dict = None, s3_bucket: str = None, s3_region: str = None, 
-                 s3_endpoint: str = None, dataset_id: str = None, frame_padding: int = 4, 
-                 image_output_format: str = "png", coco_license_info: rep.List[dict] = None, **kwargs):
-        super().__init__(output_dir, semantic_types, coco_categories, s3_bucket, s3_region,
-                         s3_endpoint, dataset_id, frame_padding, image_output_format, coco_license_info, **kwargs)
+    def __init__(self, output_dir: str):
+        super().__init__(output_dir)
         self.annotators.append(AnnotatorRegistry.get_annotator(
             "instance_segmentation", init_params={"semanticTypes": self.semantic_types}))
         self.label_dict = {
@@ -102,8 +91,6 @@ class CocoInstanceSegWriter(CocoWriter):
 
             if category_id is None:
                 continue
-            #     category_id = self.label_dict["unlabelled"]["id"]
-            #     self._used_categories.setdefault("unlabelled", self.label_dict["unlabelled"])
 
             rle = mask_utils.encode(np.asfortranarray(mask))
             rle["counts"] = rle["counts"].decode("utf-8")
@@ -116,7 +103,7 @@ class CocoInstanceSegWriter(CocoWriter):
                 "bbox_mode": 1,
                 "category_id": int(category_id),
                 "iscrowd": 0,
-                "segmentation": rle,
+                "segmentation": rle
             }
 
             image_annotations.append(annotation_entry)

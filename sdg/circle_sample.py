@@ -2,15 +2,12 @@ import omni.replicator.core as rep
 from isaacsim.core.utils import xforms, stage
 import numpy as np
     
-class Randomizer:
-    camera_position_domain_lower = np.array([-0.5, -0.5, 0.2])
-    camera_position_domain_upper = np.array([0.5, 0.5, 2.0])
-
+class CircleSampler:
     def __init__(self, prim_path: str, frames_required: int) -> None:
         self.obj_prim_path = prim_path
         self.obj_prim = rep.get.prim_at_path(prim_path)
 
-        self.camera = rep.create.camera(focus_distance=400.0, focal_length=15.0,
+        self.camera = rep.create.camera(focus_distance=400.0, focal_length=2.2,
                                         clipping_range=(0.1, 1000000.0), name="DriverCam")
         
         self.materials = rep.create.material_omnipbr(
@@ -30,15 +27,12 @@ class Randomizer:
         self.obj_apperance_trigger = rep.trigger.on_frame(max_execs=frames_required // 5, interval=5, rt_subframes=8)
         self.light_trigger = rep.trigger.on_frame(max_execs=frames_required // 15, interval=15, rt_subframes=8)
 
+        
+
     @property
     def obj_position(self):
         position, _ = xforms.get_world_pose(self.obj_prim_path)
         return position
-    
-    @property
-    def camera_position_range(self):
-        return [self.obj_position + Randomizer.camera_position_domain_lower,
-                self.obj_position + Randomizer.camera_position_domain_upper]
 
     def trigger_camera(self):
         with self.camera_trigger:
@@ -71,15 +65,22 @@ class Randomizer:
 
     def _randomize_camera_pose(self) -> rep.scripts.utils.ReplicatorItem:
         with self.camera:
-            a = rep.distribution.uniform((-8.75, -16.6, 0.2), (-5.3, -8.358, 1.2))
-            b = rep.distribution.uniform((-12.945, -17.48, 0.2), (-12.0, -4.65, 1.2))
-            c = rep.distribution.uniform((-18.0, -17.48, 0.2), (-16.6, -4.65, 1.2))
+            # a = rep.distribution.uniform((-8.75, -16.6, 0.2), (-5.3, -8.358, 1.2))
+            # b = rep.distribution.uniform((-12.945, -17.48, 0.2), (-12.0, -4.65, 1.2))
+            # c = rep.distribution.uniform((-18.0, -17.48, 0.2), (-16.6, -4.65, 1.2))
+            # rep.modify.pose(
+            #     # position=rep.distribution.uniform(*self.camera_position_range),
+            #     # position=rep.distribution.uniform((-20.0, -17.0, 0.22), (0.0, -5.0, 1.2)),
+            #     position=rep.distribution.choice([a, b, c]),
+            #     # look_at=self.obj_prim
+            #     rotation=rep.distribution.uniform((-30, -30, 0), (30, 30, 360))  # 度
+            # )
+            # 核心步骤：
+            # position 使用 sequence 依次读取圆周坐标点
+            # look_at 确保相机始终对准目标中心
             rep.modify.pose(
-                # position=rep.distribution.uniform(*self.camera_position_range),
-                # position=rep.distribution.uniform((-20.0, -17.0, 0.22), (0.0, -5.0, 1.2)),
-                position=rep.distribution.choice([a, b, c]),
-                # look_at=self.obj_prim
-                rotation=rep.distribution.uniform((-30, -30, 0), (30, 30, 360))  # 度
+                position=rep.distribution.sequence(orbit_pts),
+                look_at=self.obj_prim
             )
         return self.camera.node # type: ignore
 
