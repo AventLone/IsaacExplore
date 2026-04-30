@@ -1,34 +1,50 @@
 import omni.replicator.core as rep
-from isaacsim.core.utils import xforms, stage
+from isaacsim.core.utils import xforms
 import numpy as np
+
+def generate_orbit_positions(origin: np.ndarray, radius: float, count: int):
+    # 在 0 到 2pi 之间均匀生成角度
+    angles = np.linspace(0, 2 * np.pi, count, endpoint=False)
+    # 计算对应的 X, Y 坐标
+    return [(float(radius * np.cos(angle) + origin[0]), 
+             float(radius * np.sin(angle) + origin[1]), 
+             float(origin[2])) for angle in angles]
     
 class CircleSampler:
-    def __init__(self, prim_path: str, frames_required: int) -> None:
+    def __init__(self, prim_path: str) -> None:
         self.obj_prim_path = prim_path
         self.obj_prim = rep.get.prim_at_path(prim_path)
-
-        self.camera = rep.create.camera(focus_distance=400.0, focal_length=2.2,
+        self.camera = rep.create.camera(focus_distance=400.0, focal_length=15.0,
                                         clipping_range=(0.1, 1000000.0), name="DriverCam")
         
         self.materials = rep.create.material_omnipbr(
             metallic=rep.distribution.uniform(0.0, 1.0),
             roughness=rep.distribution.uniform(0.0, 1.0),
             diffuse=rep.distribution.uniform((0, 0, 0), (1, 1, 1)),
-            count=100
+            count=300
         )
-        
-        rep.randomizer.register(self._randomize_camera_pose)
+
         rep.randomizer.register(self._randomize_obj_pose)
         rep.randomizer.register(self._randomize_obj_apperance)
+        rep.randomizer.register(self._randomize_camera_pose)
         rep.randomizer.register(self._randomize_light)
 
+        self._obj_poses = [(-6.0, -14.38727644649423, 0.0),
+                           (-6.0, -5.485066445180405, 0.0),
+                           (-13.4, -2.3, 0.0)]
+        self._camera_poses = self._get_orbit_points(origins=self._obj_poses,
+                                                    heights=[0.5, 0.8, 1.2], 
+                                                    radiuses=[1.2, 1.5, 2.0, 2.5, 3.0])
+        frames_required = len(self._camera_poses)
+        print(f"{frames_required} images will be generated.")
+
         self.camera_trigger = rep.trigger.on_frame(max_execs=frames_required, interval=1, rt_subframes=8)
-        self.obj_pose_trigger = rep.trigger.on_frame(max_execs=frames_required // 10, interval=10, rt_subframes=8)
-        self.obj_apperance_trigger = rep.trigger.on_frame(max_execs=frames_required // 5, interval=5, rt_subframes=8)
+
+        cam_change_count = int(len(self._camera_poses) / len(self._obj_poses))
+        self.obj_pose_trigger = rep.trigger.on_frame(max_execs=frames_required // cam_change_count, interval=cam_change_count, rt_subframes=8)
+        self.obj_apperance_trigger = rep.trigger.on_frame(max_execs=frames_required // 2, interval=2, rt_subframes=8)
         self.light_trigger = rep.trigger.on_frame(max_execs=frames_required // 15, interval=15, rt_subframes=8)
-
-        
-
+       
     @property
     def obj_position(self):
         position, _ = xforms.get_world_pose(self.obj_prim_path)
@@ -52,9 +68,7 @@ class CircleSampler:
     
     def _randomize_obj_pose(self) -> rep.scripts.utils.ReplicatorItem:
         with self.obj_prim:
-            rep.modify.pose(position=rep.distribution.uniform((-20.0, -17.0, 0.0), (0.0, -5.0, 0.0)),
-                            rotation=rep.distribution.uniform((0, 0, 0), (0, 0, 360)),  # 度
-                            scale=rep.distribution.uniform((0.9, 0.9, 0.9), (1.1, 1.1, 1.1)))
+            rep.modify.pose(position=rep.distribution.sequence(self._obj_poses))
         return self.obj_prim.node # type: ignore
     
     def _randomize_obj_apperance(self) -> rep.scripts.utils.ReplicatorItem:
@@ -65,21 +79,8 @@ class CircleSampler:
 
     def _randomize_camera_pose(self) -> rep.scripts.utils.ReplicatorItem:
         with self.camera:
-            # a = rep.distribution.uniform((-8.75, -16.6, 0.2), (-5.3, -8.358, 1.2))
-            # b = rep.distribution.uniform((-12.945, -17.48, 0.2), (-12.0, -4.65, 1.2))
-            # c = rep.distribution.uniform((-18.0, -17.48, 0.2), (-16.6, -4.65, 1.2))
-            # rep.modify.pose(
-            #     # position=rep.distribution.uniform(*self.camera_position_range),
-            #     # position=rep.distribution.uniform((-20.0, -17.0, 0.22), (0.0, -5.0, 1.2)),
-            #     position=rep.distribution.choice([a, b, c]),
-            #     # look_at=self.obj_prim
-            #     rotation=rep.distribution.uniform((-30, -30, 0), (30, 30, 360))  # 度
-            # )
-            # 核心步骤：
-            # position 使用 sequence 依次读取圆周坐标点
-            # look_at 确保相机始终对准目标中心
             rep.modify.pose(
-                position=rep.distribution.sequence(orbit_pts),
+                position=rep.distribution.sequence(self._camera_poses),
                 look_at=self.obj_prim
             )
         return self.camera.node # type: ignore
@@ -88,6 +89,19 @@ class CircleSampler:
         lights = rep.get.prims(prim_types=["RectLight", "SphereLight", "DomeLight"])
         with lights:
             rep.modify.attribute("intensity", rep.distribution.uniform(1000, 80000))
-            # rep.modify.attribute("temperature", rep.distribution.uniform(3000, 8000))
-            rep.modify.attribute("color", rep.distribution.uniform((0.5, 0.5, 0.5), (1.0, 1.0, 1.0)))
+            rep.modify.attribute("color", rep.distribution.uniform((0.3, 0.3, 0.3), (1.0, 1.0, 1.0)))
         return lights.node # type: ignore
+        
+    def _get_orbit_points(self, origins: list,  heights: list, radiuses: list) -> list:
+        positions = list()
+        # position = self.obj_position
+        count = 8
+        for origin in origins:
+            origin = np.array(origin, dtype=np.float32)
+            for height in heights:
+                origin[2] = height
+                for radius in radiuses:
+                    positions.extend(generate_orbit_positions(origin, radius, count))
+
+        return positions
+        
