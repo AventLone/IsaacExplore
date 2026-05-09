@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from pycocotools import mask as mask_utils
 import numpy as np
-from .randomizer_rep import Randomizer
+from .randomizer.randomizer_rep import Randomizer
 
 
 class CocoInstanceSegWriter(CocoWriter):

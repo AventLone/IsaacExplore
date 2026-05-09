@@ -1,10 +1,10 @@
 import omni.replicator.core as rep
-from isaacsim.core.utils import xforms
+from isaacsim.core.utils import xforms, bounds
 import numpy as np
 
 def generate_orbit_positions(origin: np.ndarray, radius: float, count: int):
     # 在 0 到 2pi 之间均匀生成角度
-    angles = np.linspace(0, 2 * np.pi, count, endpoint=False)
+    angles = np.linspace(0.0, 2.0 * np.pi, count, endpoint=False)
     # 计算对应的 X, Y 坐标
     return [(float(radius * np.cos(angle) + origin[0]), 
              float(radius * np.sin(angle) + origin[1]), 
@@ -15,12 +15,12 @@ class CircleSampler:
         self.obj_prim_path = prim_path
         self.obj_prim = rep.get.prim_at_path(prim_path)
         self.camera = rep.create.camera(focus_distance=400.0, focal_length=15.0,
-                                        clipping_range=(0.1, 1000000.0), name="DriverCam")
+                                        clipping_range=(0.1, 1000000.0), name="PickupCam")
         
         self.materials = rep.create.material_omnipbr(
             metallic=rep.distribution.uniform(0.0, 1.0),
             roughness=rep.distribution.uniform(0.0, 1.0),
-            diffuse=rep.distribution.uniform((0, 0, 0), (1, 1, 1)),
+            diffuse=rep.distribution.uniform((0.0, 0.0, 0.0), (1.0, 1.0, 1.0)),
             count=300
         )
 
@@ -34,7 +34,7 @@ class CircleSampler:
                            (-13.4, -2.3, 0.0)]
         self._camera_poses = self._get_orbit_points(origins=self._obj_poses,
                                                     heights=[0.5, 0.8, 1.2], 
-                                                    radiuses=[1.2, 1.5, 2.0, 2.5, 3.0])
+                                                    radiuses=[1.7, 2.2, 2.5, 3.0])
         frames_required = len(self._camera_poses)
         print(f"{frames_required} images will be generated.")
 

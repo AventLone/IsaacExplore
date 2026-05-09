@@ -1,7 +1,7 @@
 from isaacsim.simulation_app import SimulationApp
 # "RayTracedLighting" → RTX Real-Time
 # "PathTracing" → Path Tracer
-simu_app = SimulationApp({"renderer": "PathTracing", "headless": True})
+simu_app = SimulationApp({"renderer": "RayTracedLighting", "headless": True})
 # simu_app.run_coroutine()
 
 from pathlib import Path
@@ -25,12 +25,12 @@ stage.add_reference_to_stage(
 )
 obj_prim_path = "/World/Obj"
 stage.add_reference_to_stage(
-    usd_path="/home/avent/Desktop/IsaacAssets/Props/KKP_with_goods1_1.usd",
+    usd_path="/home/avent/Desktop/IsaacAssets/Props/KKP.usd",
     prim_path=obj_prim_path
 )
 
 randomizer = CircleSampler(obj_prim_path)
-generator = Sampler(randomizer, img_resolution=(432, 432), save_path="/home/avent/Desktop/generated_data")
+generator = Sampler(randomizer, img_resolution=(504, 504), save_path="/home/avent/Desktop/generated_data")
 generator.generate()
 stage.close_stage()
 simu_app.close()

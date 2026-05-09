@@ -2,7 +2,7 @@ import omni.replicator.core as rep
 import os, carb.settings
 from .writers import CocoInstanceSegWriter
 from datetime import datetime
-from .circle_sample import CircleSampler
+from .sample.circle_sample import CircleSampler
 
 
 class Sampler:
@@ -11,7 +11,7 @@ class Sampler:
     carb.settings.get_settings().set("/omni/replicator/asyncRendering", False)
     carb.settings.get_settings().set("/app/asyncRendering", False)
     # Set DLSS to Quality mode (2) for best SDG results (Options: 0 (Performance), 1 (Balanced), 2 (Quality), 3 (Auto)
-    # carb.settings.get_settings().set("rtx/post/dlss/execMode", 2)   # DLAA
+    carb.settings.get_settings().set("rtx/post/dlss/execMode", 2)
 
     def __init__(self, randomizer: CircleSampler, img_resolution=(1024, 1024), save_path=None) -> None:
         self._randomizer = randomizer

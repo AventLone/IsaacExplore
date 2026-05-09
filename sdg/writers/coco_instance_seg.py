@@ -2,6 +2,7 @@ from omni.replicator.core import CocoWriter, AnnotatorRegistry
 from pycocotools import mask as mask_utils
 import numpy as np
 from pathlib import Path
+import copy
 
 
 class CocoInstanceSegWriter(CocoWriter):
@@ -10,7 +11,6 @@ class CocoInstanceSegWriter(CocoWriter):
         self.annotators.append(AnnotatorRegistry.get_annotator(
             "instance_segmentation", init_params={"semanticTypes": self.semantic_types}))
         self.label_dict = {
-            'unlabelled': {'name': 'unlabelled', 'id': 0, 'supercategory': 'unlabelled', 'color': (0, 0, 0), 'isthing': 0},
             'pallet': {'name': 'pallet', 'id': 1, 'supercategory': 'loads', 'color': (220, 20, 60), 'isthing': 1},
             'storage_cage': {'name': 'storage_cage', 'id': 2, 'supercategory': 'loads', 'color': (220, 20, 60), 'isthing': 1},
             'goods': {'name': 'goods', 'id': 3, 'supercategory': 'loads', 'color': (119, 11, 32), 'isthing': 1}
