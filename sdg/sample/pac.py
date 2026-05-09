@@ -3,12 +3,12 @@ Permutations and Combinations
 """
 import asyncio, random
 from isaacsim.core.utils import prims
-from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
+from pxr import Gf, Usd
 from isaacsim.core.utils import stage, prims, bounds, xforms
 from isaacsim.core.prims import SingleXFormPrim
 from omni import usd
 import numpy as np
-from ..randomizer import MaterialRandomizer
+from ..randomizer import MaterialRandomizer, stack_boxes_on_pallet_async
 
 bbox_cache = bounds.create_bbox_cache()
 
@@ -120,6 +120,14 @@ class PermuAndCombi:
         
         # prim = SingleXFormPrim(PermuAndCombi.PRIM_PATH)
         # prim.set_visibility(False)
+
+    async def run_stack_boxes(self, colomns: int, boxes_urls_and_weights):
+        for col in range(colomns):
+            self._add_colcomn(col)
+            num_boxes = random.randint(10, 120)
+            await stack_boxes_on_pallet_async(pallet_prim=self._colomn_prims[col],
+                                              boxes_urls_and_weights=boxes_urls_and_weights,
+                                              num_boxes=num_boxes)
 
 
 

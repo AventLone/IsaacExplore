@@ -5,7 +5,8 @@ simu_app = SimulationApp({"renderer": "RayTracedLighting", "headless": True})
 # simu_app.run_coroutine()
 
 from pathlib import Path
-from sdg import CircleSampler, Sampler
+from sdg.sample import CircleSampler
+from sdg import Sampler
 from isaacsim.core.utils import stage, prims
 
 def find_usds(dir: str) -> list[str]:

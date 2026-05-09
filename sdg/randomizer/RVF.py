@@ -8,15 +8,12 @@ from itertools import chain
 
 import carb
 import omni.kit.app
-import omni.usd
+import omni.usd, omni.physx
 from isaacsim.core.utils.bounds import compute_aabb, compute_obb, create_bbox_cache
-from isaacsim.storage.native import get_assets_root_path
-from omni.physx import get_physx_simulation_interface
 from pxr import (
     Gf,
     PhysicsSchemaTools,   # type: ignore
     PhysxSchema,   # type: ignore
-    Sdf,
     Usd,
     UsdGeom,
     UsdPhysics,
@@ -52,20 +49,19 @@ def add_colliders(prim):
     for desc_prim in Usd.PrimRange(prim):
         if desc_prim.IsA(UsdGeom.Mesh) or desc_prim.IsA(UsdGeom.Gprim):
             # Physics
-            if not desc_prim.HasAPI(UsdPhysics.CollisionAPI):
-                collision_api = UsdPhysics.CollisionAPI.Apply(desc_prim)
+            if not desc_prim.HasAPI(UsdPhysics.CollisionAPI):  # type: ignore
+                collision_api = UsdPhysics.CollisionAPI.Apply(desc_prim)  # type: ignore
             else:
-                collision_api = UsdPhysics.CollisionAPI(desc_prim)
+                collision_api = UsdPhysics.CollisionAPI(desc_prim)  # type: ignore
             collision_api.CreateCollisionEnabledAttr(True)
 
         # Add mesh specific collision properties only to mesh types
         if desc_prim.IsA(UsdGeom.Mesh):
-            if not desc_prim.HasAPI(UsdPhysics.MeshCollisionAPI):
-                mesh_collision_api = UsdPhysics.MeshCollisionAPI.Apply(desc_prim)
+            if not desc_prim.HasAPI(UsdPhysics.MeshCollisionAPI):  # type: ignore
+                mesh_collision_api = UsdPhysics.MeshCollisionAPI.Apply(desc_prim)  # type: ignore
             else:
-                mesh_collision_api = UsdPhysics.MeshCollisionAPI(desc_prim)
+                mesh_collision_api = UsdPhysics.MeshCollisionAPI(desc_prim)  # type: ignore
             mesh_collision_api.CreateApproximationAttr().Set("convexHull")
-
 
 # Enables rigid body dynamics (physics simulation) on the prim (having valid colliders is recommended)
 def add_rigid_body_dynamics(prim: Usd.Prim, disable_gravity=False, angular_damping=None):
@@ -84,20 +80,8 @@ def add_rigid_body_dynamics(prim: Usd.Prim, disable_gravity=False, angular_dampi
     if angular_damping is not None:
         physx_rigid_body_api.CreateAngularDampingAttr().Set(angular_damping)
 
-
-# Create a new prim with the provided asset URL and transform properties
-def create_asset(stage, asset_url, path, location=None, rotation=None, orientation=None, scale=None):
-    prim_path = omni.usd.get_stage_next_free_path(stage, path, False)
-    reference_url = asset_url if asset_url.startswith("omniverse://") else get_assets_root_path() + asset_url
-    prim = stage.DefinePrim(prim_path, "Xform")
-    prim.GetReferences().AddReference(reference_url)
-    set_transform(prim, location=location, rotation=rotation, orientation=orientation, scale=scale)
-    return prim
-
-
-# Create a new prim with the provided asset URL and transform properties including colliders
-def create_asset_with_colliders(stage, asset_url, path, location=None, rotation=None, orientation=None, scale=None):
-    prim = create_asset(stage, asset_url, path, location, rotation, orientation, scale)
+def create_asset_with_colliders(asset_url, path):
+    prim = stage.add_reference_to_stage(usd_path=asset_url, prim_path=path)
     add_colliders(prim)
     return prim
 
@@ -138,7 +122,6 @@ def create_collision_walls(prim: Usd.Prim, bbox_cache=None, height=2.0, thicknes
         collision_walls.append(prim)
     return collision_walls
 
-
 # Slide the assets independently in perpendicular directions and then pull them all together towards the given center
 async def apply_forces_async(stage, boxes, pallet, strength=550, strength_center_multiplier=2):
     timeline = omni.timeline.get_timeline_interface()
@@ -150,7 +133,7 @@ async def apply_forces_async(stage, boxes, pallet, strength=550, strength_center
     force_forward = Gf.Vec3d(pallet_rot.TransformDir(Gf.Vec3d(1, 0, 0))) * strength
     force_right = Gf.Vec3d(pallet_rot.TransformDir(Gf.Vec3d(0, 1, 0))) * strength
 
-    physx_api = get_physx_simulation_interface()
+    physx_api = omni.physx.get_physx_simulation_interface()
     stage_id = UsdUtils.StageCache.Get().GetId(stage).ToLongInt()
     for box_prim in boxes:
         body_path = PhysicsSchemaTools.sdfPathToInt(box_prim.GetPath())
@@ -159,7 +142,8 @@ async def apply_forces_async(stage, boxes, pallet, strength=550, strength_center
             box_tf: Gf.Matrix4d = UsdGeom.Xformable(box_prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
             box_position = carb.Float3(*box_tf.ExtractTranslation())
             physx_api.apply_force_at_pos(stage_id, body_path, carb.Float3(force), box_position, "Force")
-            for _ in range(10):
+            # for _ in range(10):
+            for _ in range(2):
                 await omni.kit.app.get_app().next_update_async()   # type: ignore
 
     # Pull all box at once to the pallet center
@@ -174,13 +158,15 @@ async def apply_forces_async(stage, boxes, pallet, strength=550, strength_center
     timeline.pause()
 
 # Create a new stage and and run the example scenario
-async def stack_boxes_on_pallet_async(pallet_prim, boxes_urls_and_weights, num_boxes, drop_height=1.5, drop_margin=0.2):
+async def stack_boxes_on_pallet_async(pallet_prim: Usd.Prim, boxes_urls_and_weights: list[tuple[str, float]], 
+                                      num_boxes: int, drop_height=1.5, drop_margin=0.2):
     pallet_path = pallet_prim.GetPath()
     print(f"[BoxStacking] Running scenario for pallet {pallet_path} with {num_boxes} boxes..")
     this_stage = stage.get_current_stage()
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
 
     # Create a custom physics material to allow the boxes to easily slide into stacking positions
+    prims.create_prim(f"{pallet_path}/Looks", prim_type="Scope")
     material_path = f"{pallet_path}/Looks/PhysicsMaterial"
     default_material = UsdShade.Material.Define(this_stage, material_path)
     physics_material = UsdPhysics.MaterialAPI.Apply(default_material.GetPrim()) # type: ignore
@@ -200,8 +186,12 @@ async def stack_boxes_on_pallet_async(pallet_prim, boxes_urls_and_weights, num_b
     # Create the random boxes (without physics) with the specified weights and sort them by size (volume)
     box_urls, box_weights = zip(*boxes_urls_and_weights)
     rand_boxes_urls = random.choices(box_urls, weights=box_weights, k=num_boxes)
-    boxes = [create_asset(this_stage, box_url, f"{pallet_path}_Boxes/Box_{i}") for i, box_url in enumerate(rand_boxes_urls)]
-    boxes = [stage.add_reference_to_stage(usd_path=box_url, prim_path=f"{pallet_path}_Boxes/Box_{i}")
+    boxes = list()
+    # for i, box_url in enumerate(rand_boxes_urls):
+    #     prims.create_prim(f"{pallet_path}/Boxes")
+    #     boxes.append(stage.add_reference_to_stage(usd_path=box_url, prim_path=f"{pallet_path}/Boxes/Box_{i}"))
+    prims.create_prim(f"{pallet_path}/Boxes")
+    boxes = [stage.add_reference_to_stage(usd_path=box_url, prim_path=f"{pallet_path}/Boxes/Box_{i}")
              for i, box_url in enumerate(rand_boxes_urls)]
     boxes.sort(key=lambda box: bbox_cache.ComputeLocalBound(box).GetVolume(), reverse=True)
 
@@ -249,7 +239,7 @@ async def stack_boxes_on_pallet_async(pallet_prim, boxes_urls_and_weights, num_b
 
         # Play simulation for a few frames for each box
         timeline.play()
-        for _ in range(20):
+        for _ in range(10):
             await app_interface.next_update_async()   # type: ignore
         timeline.pause()
 
@@ -270,35 +260,18 @@ async def stack_boxes_on_pallet_async(pallet_prim, boxes_urls_and_weights, num_b
     return boxes
 
 # Run the example scenario
-async def run_box_stacking_scenarios_async(num_pallets=1, env_url=None):
+async def run_box_stacking_scenarios_async(num_pallets=1):
     # List of pallets and boxes to randomly choose from with their respective weights
     pallets_urls_and_weights = [
-        ("/Isaac/Environments/Simple_Warehouse/Props/SM_PaletteA_01.usd", 0.25),
-        ("/Isaac/Environments/Simple_Warehouse/Props/SM_PaletteA_02.usd", 0.75),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_PaletteA_01.usd", 0.25),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_PaletteA_02.usd", 0.75),
     ]
     boxes_urls_and_weights = [
-        ("/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxA_01.usd", 0.02),
-        ("/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxB_01.usd", 0.06),
-        ("/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxC_01.usd", 0.12),
-        ("/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxD_01.usd", 0.80),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxA_01.usd", 0.02),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxB_01.usd", 0.06),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxC_01.usd", 0.12),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxD_01.usd", 0.80),
     ]
-
-    # Load a predefined or create a new stage
-    if env_url is not None:
-        env_path = env_url if env_url.startswith("omniverse://") else get_assets_root_path() + env_url
-        omni.usd.get_context().open_stage(env_path)
-        stage = omni.usd.get_context().get_stage()
-    else:
-        omni.usd.get_context().new_stage()
-
-        stage = omni.usd.get_context().get_stage()
-        distant_light = stage.DefinePrim("/World/Lights/DistantLight", "DistantLight")
-        distant_light.CreateAttribute("inputs:intensity", Sdf.ValueTypeNames.Float).Set(400.0)
-        if not distant_light.HasAttribute("xformOp:rotateXYZ"):
-            UsdGeom.Xformable(distant_light).AddRotateXYZOp()
-        distant_light.GetAttribute("xformOp:rotateXYZ").Set((0, 60, 0))
-        dome_light = stage.DefinePrim("/World/Lights/DomeLight", "DomeLight")
-        dome_light.CreateAttribute("inputs:intensity", Sdf.ValueTypeNames.Float).Set(500.0)
 
     # Spawn the pallets
     pallets = []
@@ -313,37 +286,59 @@ async def run_box_stacking_scenarios_async(num_pallets=1, env_url=None):
     random.shuffle(custom_pallet_locations)
     for i, pallet_url in enumerate(rand_pallet_urls):
         # Use a custom location for every other pallet
-        if env_url is not None:
-            if i % 2 == 0 and custom_pallet_locations:
-                rand_loc = Gf.Vec3d(*custom_pallet_locations.pop())
-            else:
-                rand_loc = Gf.Vec3d(-6.5, i * 1.75, 0) + Gf.Vec3d(random.uniform(-0.2, 0.2), random.uniform(0, 0.2), 0)
-        else:
-            rand_loc = Gf.Vec3d(i * 1.5, 0, 0) + Gf.Vec3d(random.uniform(0, 0.2), random.uniform(-0.2, 0.2), 0)
+        # if env_url is not None:
+        #     if i % 2 == 0 and custom_pallet_locations:
+        #         rand_loc = Gf.Vec3d(*custom_pallet_locations.pop())
+        #     else:
+        #         rand_loc = Gf.Vec3d(-6.5, i * 1.75, 0) + Gf.Vec3d(random.uniform(-0.2, 0.2), random.uniform(0, 0.2), 0)
+        # else:
+        rand_loc = Gf.Vec3d(i * 1.5, 0, 0) + Gf.Vec3d(random.uniform(0, 0.2), random.uniform(-0.2, 0.2), 0)
         rand_rot = (0, 0, random.choice([180, 90, 0, -90, -180]) + random.uniform(-15, 15))
-        pallet_prim = create_asset_with_colliders(
-            stage, pallet_url, f"/World/Pallet_{i}", location=rand_loc, rotation=rand_rot
-        )
+        # pallet_prim = create_asset_with_colliders(
+        #     stage, pallet_url, f"/World/Pallet_{i}", location=rand_loc, rotation=rand_rot
+        # )
+        pallet_prim = create_asset_with_colliders(pallet_url, f"/World/Pallet_{i}")
         pallets.append(pallet_prim)
 
     # Stack the boxes on the pallets
     total_boxes = []
     for pallet in pallets:
-        if env_url is not None:
-            rand_num_boxes = random.randint(8, 15)
-            stacked_boxes = await stack_boxes_on_pallet_async(
-                pallet, boxes_urls_and_weights, num_boxes=rand_num_boxes, drop_height=1.0
-            )
-        else:
-            rand_num_boxes = random.randint(12, 20)
-            stacked_boxes = await stack_boxes_on_pallet_async(pallet, boxes_urls_and_weights, num_boxes=rand_num_boxes)
+        # if env_url is not None:
+        #     rand_num_boxes = random.randint(8, 15)
+        #     stacked_boxes = await stack_boxes_on_pallet_async(
+        #         pallet, boxes_urls_and_weights, num_boxes=rand_num_boxes, drop_height=1.0
+        #     )
+        # else:
+        rand_num_boxes = random.randint(12, 20)
+        stacked_boxes = await stack_boxes_on_pallet_async(pallet, boxes_urls_and_weights, num_boxes=rand_num_boxes)
         total_boxes.extend(stacked_boxes)
 
     # Re-enable rigid body dynamics of the boxes and run the simulation for a while
     for box in total_boxes:
-        UsdPhysics.RigidBodyAPI(box).GetRigidBodyEnabledAttr().Set(True)
+        UsdPhysics.RigidBodyAPI(box).GetRigidBodyEnabledAttr().Set(True) # type: ignore
     timeline = omni.timeline.get_timeline_interface()
     timeline.play()
     for _ in range(200):
-        await omni.kit.app.get_app().next_update_async()
+        await omni.kit.app.get_app().next_update_async() # type: ignore
     timeline.pause()
+
+
+async def example():
+    boxes_urls_and_weights = [
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxA_01.usd", 0.02),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxB_01.usd", 0.06),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxC_01.usd", 0.12),
+        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxD_01.usd", 0.80),
+    ]
+
+    pallet_with_goods_prim_path = "/World/pallet_with_goods"
+    pallet_with_goods = prims.create_prim(prim_path=pallet_with_goods_prim_path)
+    pallet_prim_path = f"{pallet_with_goods_prim_path}/pallet"
+    pallet_prim = stage.add_reference_to_stage(
+        usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Props/pallet_eu.usd",
+        prim_path=pallet_prim_path
+    )
+    num_boxes = random.randint(10, 120)
+    await stack_boxes_on_pallet_async(pallet_prim=pallet_with_goods, 
+                                      boxes_urls_and_weights=boxes_urls_and_weights,
+                                      num_boxes=120)
