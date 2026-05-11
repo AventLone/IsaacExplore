@@ -8,7 +8,7 @@ from isaacsim.core.utils import stage, prims, bounds, xforms
 from isaacsim.core.prims import SingleXFormPrim
 from omni import usd
 import numpy as np
-from ..randomizer import MaterialRandomizer, stack_boxes_on_pallet_async
+from ..randomizer import MaterialRandomizer, stack_boxes_on_pallet_async, stack_boxes_on_pallet_async_
 
 bbox_cache = bounds.create_bbox_cache()
 
@@ -50,7 +50,7 @@ class PermuAndCombi:
         rotation = Gf.Rotation(Gf.Vec3d(0, 0, 1), yaw).GetQuat()
         # Convert Gf.Quat to a format Isaac Sim understands (w, x, y, z)
         # GetReal() is 'w', GetImaginary() is (x, y, z)
-        quat_array = np.array([rotation.GetReal(), *rotation.GetImaginary()])
+        quat_array = [rotation.GetReal(), *rotation.GetImaginary()]
         self.prim.set_world_pose(position=translation, orientation=quat_array) # type: ignore
         
     @staticmethod
@@ -62,7 +62,7 @@ class PermuAndCombi:
     def _duplicate(self, path_to: str):
         usd.duplicate_prim(stage=self._stage, prim_path=self._component_prim_path, path_to=path_to)
 
-    def _pile_on(self, colomn_idx: int, row: int):
+    def _pile_on(self, colomn_idx: int, row: int, xy_range=0.01, yaw_range=5.0):
         """
         Pile a component on top of the specified colomn
         """
@@ -75,10 +75,16 @@ class PermuAndCombi:
         component_prim_path = f"{prim_path}/component{self._component_number}"
         self._duplicate(component_prim_path)
         self.make_visiable(component_prim_path)
-        new_component_pos = (0.0, 0.0, self._component_height * row)
+        new_component_pos = (random.uniform(-xy_range, xy_range), 
+                             random.uniform(-xy_range, xy_range), 
+                             self._component_height * row)
+
+        rotation = Gf.Rotation(Gf.Vec3d(0, 0, 1), random.uniform(-yaw_range, yaw_range)).GetQuat()
+        quat_array = [rotation.GetReal(), *rotation.GetImaginary()]
+
         prim = SingleXFormPrim(component_prim_path)
         prim.initialize()  # needed if you are operating on an existing prim in a scene
-        prim.set_local_pose(translation=new_component_pos)
+        prim.set_local_pose(translation=new_component_pos, orientation=quat_array)
     
     def _add_colcomn(self, col_idx):
         """
@@ -123,9 +129,9 @@ class PermuAndCombi:
 
     async def run_stack_boxes(self, colomns: int, boxes_urls_and_weights):
         for col in range(colomns):
-            self._add_colcomn(col)
+            self._add_colcomn(col + 1)
             num_boxes = random.randint(10, 120)
-            await stack_boxes_on_pallet_async(pallet_prim=self._colomn_prims[col],
+            await stack_boxes_on_pallet_async_(pallet_prim=self._colomn_prims[col],
                                               boxes_urls_and_weights=boxes_urls_and_weights,
                                               num_boxes=num_boxes)
 

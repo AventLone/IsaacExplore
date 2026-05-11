@@ -5,11 +5,14 @@ Physics-based Randomized Volume Filling
 import asyncio
 import random, omni.timeline, omni.kit.app
 from itertools import chain
+from isaacsim.core.prims import SingleXFormPrim
+from ..common import set_local_trasform
 
 import carb
 import omni.kit.app
 import omni.usd, omni.physx
-from isaacsim.core.utils.bounds import compute_aabb, compute_obb, create_bbox_cache
+# from isaacsim.core.utils.bounds import compute_aabb, compute_obb, create_bbox_cache
+from isaacsim.core.utils import bounds
 from pxr import (
     Gf,
     PhysicsSchemaTools,   # type: ignore
@@ -23,6 +26,16 @@ from pxr import (
 
 from isaacsim.core.utils import stage, prims, bounds
 
+bbox_cache = bounds.create_bbox_cache()
+
+def get_dimensions(prim: str | Usd.Prim):
+    """
+    Calculate dimensions (length, width, height)
+    return dimensions_x, dimension_y, dimensions_z
+    """
+    prim_path = str(prim.GetPrimPath()) if type(prim) is Usd.Prim else prim
+    aabb = bounds.compute_aabb(bbox_cache, prim_path, include_children=True)
+    return float(aabb[3] - aabb[0]), float(aabb[4] - aabb[1]), float(aabb[5]- aabb[2])
 
 # Add transformation properties to the prim (if not already present)
 def set_transform(prim: Usd.Prim, location=None, orientation=None, rotation=None, scale=None):
@@ -42,6 +55,17 @@ def set_transform(prim: Usd.Prim, location=None, orientation=None, rotation=None
         if not prim.HasAttribute("xformOp:scale"):
             UsdGeom.Xformable(prim).AddScaleOp()
         prim.GetAttribute("xformOp:scale").Set(scale)
+
+def activate_transform_attribute(prim: Usd.Prim):
+    if not prim.HasAttribute("xformOp:translate"):
+        UsdGeom.Xformable(prim).AddTranslateOp()
+    if not prim.HasAttribute("xformOp:orient"):
+        UsdGeom.Xformable(prim).AddOrientOp()
+    if not prim.HasAttribute("xformOp:rotateXYZ"):
+        UsdGeom.Xformable(prim).AddRotateXYZOp()
+    if not prim.HasAttribute("xformOp:scale"):
+        UsdGeom.Xformable(prim).AddScaleOp()
+
 
 # Enables collisions with the asset (without rigid body dynamics the asset will be static)
 def add_colliders(prim):
@@ -87,10 +111,11 @@ def create_asset_with_colliders(asset_url, path):
 
 
 # Create collision walls around the top surface of the prim with the given height and thickness
-def create_collision_walls(prim: Usd.Prim, bbox_cache=None, height=2.0, thickness=0.3, material=None, visible=False):
+# def create_collision_walls(prim: Usd.Prim, bbox_cache=None, height=2.6, thickness=0.1, material=None, visible=False):
+def create_collision_walls(prim: Usd.Prim, height=2.6, thickness=0.1, material=None, visible=False):
     # Use the untransformed axis-aligned bounding box to calculate the prim surface size and center
-    if bbox_cache is None:
-        bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
+    # if bbox_cache is None:
+        # bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
     local_range = bbox_cache.ComputeWorldBound(prim).GetRange()
     width, depth, local_height = local_range.GetSize()
     # Raise the midpoint height to the prim's surface
@@ -108,6 +133,34 @@ def create_collision_walls(prim: Usd.Prim, bbox_cache=None, height=2.0, thicknes
 
     # Use the parent prim path to create the walls as children (use local coordinates)
     prim_path = prim.GetPath()
+    collision_walls = []
+    for name, location, size in walls:
+        scale = (size[0] / 2.0, size[1] / 2.0, size[2] / 2.0)
+        prim = prims.create_prim(f"{prim_path}/{name}", prim_type="Cube")
+        set_transform(prim, location=location, scale=scale)
+        add_colliders(prim)
+        if not visible:
+            UsdGeom.Imageable(prim).MakeInvisible()
+        if material is not None:
+            mat_binding_api = UsdShade.MaterialBindingAPI.Apply(prim)
+            mat_binding_api.Bind(material, UsdShade.Tokens.weakerThanDescendants, "physics")
+        collision_walls.append(prim)
+    return collision_walls
+
+def create_collision_walls_(prim: Usd.Prim, height=4.6, thickness=0.1, material=None, visible=False):
+    dimensions_x, dimensions_y, _ = get_dimensions(prim)
+
+    # Define the walls (name, location, size) with the specified thickness added externally to the surface and height
+    walls = [
+        # ("ceiling", (0.0, 0.0, height + thickness / 2), (dimensions_x, dimensions_y, thickness)),
+        ("left_wall", (0.0, -(dimensions_y + thickness) / 2.0, height / 2.0), (dimensions_x, thickness, height)), 
+        ("right_wall", (0.0, (dimensions_y + thickness) / 2.0, height / 2.0), (dimensions_x, thickness, height)),
+        ("front_wall", ((dimensions_x + thickness) / 2.0, 0.0, height / 2.0), (thickness, dimensions_y, height)),
+        ("back_wall", (-(dimensions_x + thickness) / 2.0, 0.0, height / 2.0), (thickness, dimensions_y, height))
+    ]
+
+    # Use the parent prim path to create the walls as children (use local coordinates)
+    prim_path = prim.GetPrimPath()
     collision_walls = []
     for name, location, size in walls:
         scale = (size[0] / 2.0, size[1] / 2.0, size[2] / 2.0)
@@ -163,7 +216,7 @@ async def stack_boxes_on_pallet_async(pallet_prim: Usd.Prim, boxes_urls_and_weig
     pallet_path = pallet_prim.GetPath()
     print(f"[BoxStacking] Running scenario for pallet {pallet_path} with {num_boxes} boxes..")
     this_stage = stage.get_current_stage()
-    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
+    # bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
 
     # Create a custom physics material to allow the boxes to easily slide into stacking positions
     prims.create_prim(f"{pallet_path}/Looks", prim_type="Scope")
@@ -179,17 +232,14 @@ async def stack_boxes_on_pallet_async(pallet_prim: Usd.Prim, boxes_urls_and_weig
     mat_binding_api.Bind(default_material, UsdShade.Tokens.weakerThanDescendants, "physics")
 
     # Create collision walls around the top of the pallet and apply the physics material to them
-    collision_walls = create_collision_walls(pallet_prim, bbox_cache,
-                                             height=drop_height + drop_margin, 
+    collision_walls = create_collision_walls(pallet_prim,
+                                             height=drop_height + drop_margin,
                                              material=default_material)
 
     # Create the random boxes (without physics) with the specified weights and sort them by size (volume)
     box_urls, box_weights = zip(*boxes_urls_and_weights)
     rand_boxes_urls = random.choices(box_urls, weights=box_weights, k=num_boxes)
     boxes = list()
-    # for i, box_url in enumerate(rand_boxes_urls):
-    #     prims.create_prim(f"{pallet_path}/Boxes")
-    #     boxes.append(stage.add_reference_to_stage(usd_path=box_url, prim_path=f"{pallet_path}/Boxes/Box_{i}"))
     prims.create_prim(f"{pallet_path}/Boxes")
     boxes = [stage.add_reference_to_stage(usd_path=box_url, prim_path=f"{pallet_path}/Boxes/Box_{i}")
              for i, box_url in enumerate(rand_boxes_urls)]
@@ -258,6 +308,87 @@ async def stack_boxes_on_pallet_async(pallet_prim: Usd.Prim, boxes_urls_and_weig
     for wall in collision_walls:
         this_stage.RemovePrim(wall.GetPath())
     return boxes
+
+
+async def stack_boxes_on_pallet_async_(pallet_prim: Usd.Prim, boxes_urls_and_weights: list[tuple[str, float]], 
+                                      num_boxes: int, drop_height=1.6, drop_margin=0.4) -> None:
+    pallet_path = pallet_prim.GetPrimPath()
+    this_stage = stage.get_current_stage()
+    bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
+
+
+    # Create a custom physics material to allow the boxes to easily slide into stacking positions
+    prims.create_prim(f"{pallet_path}/Looks", prim_type="Scope")
+    material_path = f"{pallet_path}/Looks/PhysicsMaterial"
+    default_material = UsdShade.Material.Define(this_stage, material_path)
+    physics_material = UsdPhysics.MaterialAPI.Apply(default_material.GetPrim()) # type: ignore
+    physics_material.CreateRestitutionAttr().Set(0.0)  # Inelastic collision (no bouncing)
+    physics_material.CreateStaticFrictionAttr().Set(0.01)  # Small friction to allow sliding of stationary boxes
+    physics_material.CreateDynamicFrictionAttr().Set(0.01)  # Small friction to allow sliding of moving boxes
+
+    # Apply the physics material to the pallet
+    add_colliders(pallet_prim)
+    mat_binding_api = UsdShade.MaterialBindingAPI.Apply(pallet_prim)
+    mat_binding_api.Bind(default_material, UsdShade.Tokens.weakerThanDescendants, "physics")
+
+    # Create collision walls around the top of the pallet and apply the physics material to them
+    collision_walls = create_collision_walls_(pallet_prim,
+                                              height=drop_height + drop_margin,
+                                              material=default_material)
+
+    # Create the random boxes (without physics) with the specified weights and sort them by size (volume)
+    box_urls, box_weights = zip(*boxes_urls_and_weights)
+    rand_boxes_urls = random.choices(box_urls, weights=box_weights, k=num_boxes)
+    boxes = list()
+    # for i, box_url in enumerate(rand_boxes_urls):
+    #     prims.create_prim(f"{pallet_path}/Boxes")
+    #     boxes.append(stage.add_reference_to_stage(usd_path=box_url, prim_path=f"{pallet_path}/Boxes/Box_{i}"))
+    prims.create_prim(f"{pallet_path}/Boxes")
+    boxes = [stage.add_reference_to_stage(usd_path=box_url, prim_path=f"{pallet_path}/Boxes/Box_{i}")
+             for i, box_url in enumerate(rand_boxes_urls)]
+    boxes.sort(key=lambda box: bbox_cache.ComputeLocalBound(box).GetVolume(), reverse=True)
+
+    pallet_dimensions_x, pallet_dimensions_y, _ = get_dimensions(pallet_prim)
+
+
+    # Simulate dropping the boxes from random poses on the pallet
+    random_range_x = pallet_dimensions_x / 3.0
+    random_range_y = pallet_dimensions_y / 3.0
+    timeline = omni.timeline.get_timeline_interface()
+    app_interface = omni.kit.app.get_app()
+    for box_prim in boxes:
+        add_colliders(box_prim)
+        add_rigid_body_dynamics(box_prim, angular_damping=0.9)
+        set_local_trasform(box_prim, [random.uniform(-random_range_x, random_range_x), 
+                                      random.uniform(-random_range_y, random_range_y), drop_height])
+
+        # Bind the physics material to the box (allow frictionless sliding)
+        mat_binding_api = UsdShade.MaterialBindingAPI.Apply(box_prim)
+        mat_binding_api.Bind(default_material, UsdShade.Tokens.weakerThanDescendants, "physics")
+        # Wait for an app update to load the new attributes
+        await app_interface.next_update_async()   # type: ignore
+
+        # Play simulation for a few frames for each box
+        timeline.play()
+        for _ in range(10):
+            await app_interface.next_update_async()   # type: ignore
+        timeline.pause()
+
+    # Iteratively apply forces to the boxes to move them around then pull them all together towards the pallet center
+    await apply_forces_async(this_stage, boxes, pallet_prim, strength=1000)
+
+    # Remove rigid body dynamics of the boxes until all other scenarios are completed
+    for box in boxes:
+        UsdPhysics.RigidBodyAPI(box).GetRigidBodyEnabledAttr().Set(False)   # type: ignore
+
+    # Increase the friction to prevent sliding of the boxes on the pallet before removing the collision walls
+    physics_material.CreateStaticFrictionAttr().Set(0.99)
+    physics_material.CreateDynamicFrictionAttr().Set(0.99)
+
+    # Remove collision walls
+    for wall in collision_walls:
+        this_stage.RemovePrim(wall.GetPath())
+    
 
 # Run the example scenario
 async def run_box_stacking_scenarios_async(num_pallets=1):
@@ -339,6 +470,6 @@ async def example():
         prim_path=pallet_prim_path
     )
     num_boxes = random.randint(10, 120)
-    await stack_boxes_on_pallet_async(pallet_prim=pallet_with_goods, 
+    await stack_boxes_on_pallet_async_(pallet_prim=pallet_with_goods, 
                                       boxes_urls_and_weights=boxes_urls_and_weights,
-                                      num_boxes=120)
+                                      num_boxes=120, drop_height=3.0)
