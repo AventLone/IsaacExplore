@@ -33,8 +33,8 @@ prims.create_prim("/World")
 
 obj_prim_path = "/World/Obj"
 stage.add_reference_to_stage(
-    # usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Props/pallet_eu.usd",
-    usd_path="/home/avent/Desktop/IsaacAssets/Props/KKP.usd",
+    usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Props/pallet_eu.usd",
+    # usd_path="/home/avent/Desktop/IsaacAssets/Props/KKP.usd",
     prim_path=obj_prim_path
 )
 
@@ -47,13 +47,13 @@ boxes_urls_and_weights = [
 # simu_app.run_coroutine(pca.run(colomns=6, rows=6))
 # simu_app.run_coroutine(pca.run_stack_boxes(colomns=6, boxes_urls_and_weights=boxes_urls_and_weights))
 pca = PermuAndCombi(obj_prim_path)
-simu_app.run_coroutine(pca.line_up(colomns=6, rows=1, gap=0.2, direction='y'))
+simu_app.run_coroutine(pca.line_up(colomns=6, rows=1, gap=0.2, direction='x'))
 
 for col in pca.colomn_prims:
     num_boxes = random.randint(8, 20)
     run_coroutine(stack_boxes_on_pallet_async(pallet_prim=col,
                                               boxes_urls_and_weights=boxes_urls_and_weights,
-                                              num_boxes=num_boxes))
+                                              num_boxes=num_boxes, overhang=0.03))
 
 # environment_url = "/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Environments/warehouse_trailer.usd"
 # simu_app.run_coroutine(example())

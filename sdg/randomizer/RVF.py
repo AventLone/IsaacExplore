@@ -124,7 +124,7 @@ async def apply_forces_async(boxes: list[Usd.Prim], pallet, strength=550, streng
     timeline.pause()
 
 async def stack_boxes_on_pallet_async(pallet_prim: Usd.Prim, boxes_urls_and_weights: list[tuple[str, float]], 
-                                      num_boxes: int, drop_height=3.6, drop_margin=0.4) -> None:
+                                      num_boxes: int, overhang=0.0, drop_height=3.6, drop_margin=0.4) -> None:
     pallet_path = pallet_prim.GetPrimPath()
     this_stage = stage_utils.get_current_stage()
 
@@ -197,7 +197,11 @@ async def stack_boxes_on_pallet_async(pallet_prim: Usd.Prim, boxes_urls_and_weig
 
     semantics_utils.remove_all_semantics(boxes_prim, recursive=True)
     semantics_utils.add_labels(boxes_prim, labels=["goods"])
-    
+    overhang = abs(overhang)
+    if overhang > 0.0:
+        set_local_trasform(boxes_prim, translation=[random.uniform(-overhang, overhang),
+                                                    random.uniform(-overhang, overhang), 0.0])
+
 async def example():
     boxes_urls_and_weights = [
         ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxA_01.usd", 0.02),
