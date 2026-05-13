@@ -42,6 +42,7 @@ def load_usds(dir: str | list[str], objs_prim_path="/World/Objs") -> list[str]:
     """
     Load USDs from a folder into the stage
     """
+    prims.create_prim(objs_prim_path)
     usd_file_paths = find_usds(dir) if type(dir) is str else dir
     obj_prim_paths = []
     idx = 0
@@ -55,14 +56,14 @@ def load_usds(dir: str | list[str], objs_prim_path="/World/Objs") -> list[str]:
 
 
 
-objs_prim_path = "/World/Obj"
-stage.add_reference_to_stage(
-    usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Props/pallet_eu.usd",
-    # usd_path="/home/avent/Desktop/IsaacAssets/Props/KKP.usd",
-    prim_path=objs_prim_path
-)
+# objs_prim_path = "/World/Obj"
+# stage.add_reference_to_stage(
+#     usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Props/pallet_eu.usd",
+#     # usd_path="/home/avent/Desktop/IsaacAssets/Props/KKP.usd",
+#     prim_path=objs_prim_path
+# )
 
-# obj_prim_paths = load_usds(dir="jj")
+obj_prim_paths = load_usds(dir="/home/avent/Desktop/pallets")
 
 boxes_urls_and_weights = [
     ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxA_01.usd", 0.02),
@@ -72,7 +73,7 @@ boxes_urls_and_weights = [
 ]
 # simu_app.run_coroutine(pca.run(colomns=6, rows=6))
 # simu_app.run_coroutine(pca.run_stack_boxes(colomns=6, boxes_urls_and_weights=boxes_urls_and_weights))
-pca = PermuAndCombi([objs_prim_path])
+pca = PermuAndCombi(obj_prim_paths)
 simu_app.run_coroutine(pca.line_up(colomns=6, rows=6, gap=0, direction='x'))
 
 # for col in pca.colomn_prims:

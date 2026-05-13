@@ -1,7 +1,30 @@
 from typing import Sequence
 from isaacsim.core.prims import SingleXFormPrim
-from isaacsim.core.utils import bounds as bounds_utils, prims as prims_utils
+from isaacsim.core.utils import bounds as bounds_utils, prims as prims_utils, stage as stage_utils
 from pxr import Usd, Gf
+import pathlib
+
+def find_usds(dir: str) -> list[str]:
+    folder = pathlib.Path(dir)
+    usd_files = []
+    for usd_file in folder.rglob("*.usd"):
+        usd_files.append(str(usd_file))
+    return usd_files
+
+def load_usds(dir: str | list[str], objs_prim_path="/World/Objs") -> list[str]:
+    """
+    Load USDs from a folder into the stage
+    """
+    usd_file_paths = find_usds(dir) if type(dir) is str else dir
+    obj_prim_paths = []
+    idx = 0
+    for file_path in usd_file_paths:
+        idx += 1
+        obj_prim_path = f"{objs_prim_path}/obj{idx}"
+        obj_prim_paths.append(obj_prim_path)
+        stage_utils.add_reference_to_stage(usd_path=file_path, prim_path=obj_prim_path)
+    return obj_prim_paths
+
 
 def yaw2quat(yaw: float) -> Sequence[float]:
     rotation = Gf.Rotation(Gf.Vec3d(0, 0, 1), yaw).GetQuat()
