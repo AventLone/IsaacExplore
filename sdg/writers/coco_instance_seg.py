@@ -2,7 +2,6 @@ from omni.replicator.core import CocoWriter, AnnotatorRegistry
 from pycocotools import mask as mask_utils
 import numpy as np
 from pathlib import Path
-import copy
 
 
 class CocoInstanceSegWriter(CocoWriter):

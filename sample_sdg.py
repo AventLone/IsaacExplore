@@ -34,4 +34,5 @@ randomizer = CircleSampler(obj_prim_path)
 generator = Sampler(randomizer, img_resolution=(504, 504), save_path="/home/avent/Desktop/generated_data")
 generator.generate()
 stage.close_stage()
+
 simu_app.close()

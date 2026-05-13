@@ -1,6 +1,6 @@
 from typing import Sequence
 from isaacsim.core.prims import SingleXFormPrim
-from isaacsim.core.utils import bounds
+from isaacsim.core.utils import bounds as bounds_utils, prims as prims_utils
 from pxr import Usd, Gf
 
 def yaw2quat(yaw: float) -> Sequence[float]:
@@ -9,14 +9,19 @@ def yaw2quat(yaw: float) -> Sequence[float]:
     # GetReal() is 'w', GetImaginary() is (x, y, z)
     return rotation.GetReal(), *rotation.GetImaginary()
 
-bbox_cache = bounds.create_bbox_cache()
+def make_visiable(prim: str | Usd.Prim, visible: bool = True):
+    prim = prim if type(prim) is Usd.Prim else prims_utils.get_prim_at_path(prim)
+    visibility = "visible" if visible else "invisible"
+    prim.GetAttribute("visibility").Set(visibility)
+
+bbox_cache = bounds_utils.create_bbox_cache()
 
 def get_dimensions(prim: str | Usd.Prim):
     """
     Calculate dimensions (x, y, z)
     """
     prim_path = str(prim.GetPrimPath()) if type(prim) is Usd.Prim else prim
-    aabb = bounds.compute_aabb(bbox_cache, prim_path) # [min x, min y, min z, max x, max y, max z]
+    aabb = bounds_utils.compute_aabb(bbox_cache, prim_path) # [min x, min y, min z, max x, max y, max z]
     return float(aabb[3] - aabb[0]), float(aabb[4] - aabb[1]), float(aabb[5] - aabb[2])
 
 def set_local_trasform(prim: str | Usd.Prim, 
