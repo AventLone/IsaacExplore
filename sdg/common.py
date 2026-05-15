@@ -15,6 +15,7 @@ def load_usds(dir: str | list[str], objs_prim_path="/World/Objs") -> list[str]:
     """
     Load USDs from a folder into the stage
     """
+    prims_utils.create_prim(objs_prim_path)
     usd_file_paths = find_usds(dir) if type(dir) is str else dir
     obj_prim_paths = []
     idx = 0

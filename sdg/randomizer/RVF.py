@@ -4,6 +4,7 @@ Physics-based Randomized Volume Filling
 import random, omni.timeline, omni.kit.app
 from itertools import chain
 from ..common import set_local_trasform, get_dimensions, bbox_cache
+from omni.physx.scripts.utils import setCollider
 from isaacsim.core.utils import semantics as semantics_utils
 
 import carb
@@ -17,7 +18,8 @@ from pxr import (Gf, Usd,
 timeline = omni.timeline.get_timeline_interface()
 app_interface = omni.kit.app.get_app()
 
-async def wait_for(frames:int):
+
+async def wait_for(frames: int):
     for _ in range(frames):
         await app_interface.next_update_async()  # type: ignore
 
@@ -57,11 +59,6 @@ def add_rigid_body_dynamics(prim: Usd.Prim, disable_gravity=False, angular_dampi
     physx_rigid_body_api.GetDisableGravityAttr().Set(disable_gravity)
     if angular_damping is not None:
         physx_rigid_body_api.CreateAngularDampingAttr().Set(angular_damping)
-
-def create_asset_with_colliders(asset_url, path):
-    prim = stage.add_reference_to_stage(usd_path=asset_url, prim_path=path)
-    add_colliders(prim)
-    return prim
 
 def create_collision_walls(prim: Usd.Prim, height=4.6, thickness=0.1, material=None, visible=False):
     dimensions_x, dimensions_y, _ = get_dimensions(prim)
@@ -201,23 +198,3 @@ async def stack_boxes_on_pallet_async(pallet_prim: Usd.Prim, boxes_urls_and_weig
     if overhang > 0.0:
         set_local_trasform(boxes_prim, translation=[random.uniform(-overhang, overhang),
                                                     random.uniform(-overhang, overhang), 0.0])
-
-async def example():
-    boxes_urls_and_weights = [
-        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxA_01.usd", 0.02),
-        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxB_01.usd", 0.06),
-        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxC_01.usd", 0.12),
-        ("/home/avent/Desktop/IsaacAssets/isaac-sim-assets-complete-5.1.0/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/Props/SM_CardBoxD_01.usd", 0.80),
-    ]
-
-    pallet_with_goods_prim_path = "/World/pallet_with_goods"
-    pallet_with_goods = prims.create_prim(prim_path=pallet_with_goods_prim_path)
-    pallet_prim_path = f"{pallet_with_goods_prim_path}/pallet"
-    pallet_prim = stage.add_reference_to_stage(
-        usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Props/pallet_eu.usd",
-        prim_path=pallet_prim_path
-    )
-    num_boxes = random.randint(10, 120)
-    await stack_boxes_on_pallet_async(pallet_prim=pallet_with_goods, 
-                                      boxes_urls_and_weights=boxes_urls_and_weights,
-                                      num_boxes=120, drop_height=3.0)
