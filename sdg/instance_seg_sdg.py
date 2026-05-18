@@ -120,12 +120,12 @@ class SDG:
                     set_local_trasform(target_prim_path, [0.0, 0.0, 0.0])
 
                     for frame in range(self._camera_light_randomizer.frames_generated):
-                        await rep.orchestrator.step_async(rt_subframes=8)
                         self._camera_light_randomizer.randomize_camera()
                         pbar.update(1)
                         # self.current_frames_generated += 1
                         if frame % 10 == 0:
                             self._camera_light_randomizer.randomize_light()
+                        await rep.orchestrator.step_async(rt_subframes=8)
                     this_stage.RemovePrim(target_prim_path)
 
         await rep.orchestrator.wait_until_complete_async()
