@@ -23,8 +23,7 @@ async def prepare_loads_with_goods(prim_paths: list[str], loads_count: int, boxe
     pca_list = []
     idx = 0.0
    
-    with tqdm(total=len(prim_paths) * loads_count, desc="Preparation Progress",
-              unit="Pallet", file=sys.stdout) as pbar:
+    with tqdm(total=len(prim_paths) * loads_count, desc="Preparation Progress", unit="Pallet", file=sys.stdout) as pbar:
         for prim_path in prim_paths:
             pca = PermuAndCombi([prim_path])
             pca.set_pose(translation=(0.0, 999.0 + idx, 0.0), yaw=0.0)
@@ -32,8 +31,7 @@ async def prepare_loads_with_goods(prim_paths: list[str], loads_count: int, boxe
 
             for col in pca.column_prims:
                 num_boxes = random.randint(10, 50)
-                await stack_boxes_on_pallet_async(pallet_prim=col,
-                                                  boxes_urls_and_weights=boxes_urls_and_weights,
+                await stack_boxes_on_pallet_async(pallet_prim=col, boxes_urls_and_weights=boxes_urls_and_weights,
                                                   num_boxes=num_boxes, overhang=0.2)
                 pbar.update(1)
 
@@ -55,7 +53,6 @@ class SDG:
                  img_resolution: tuple[int, int], stacking_cols: int, stacking_rows: int,
                  camera_height: float, camera_orbit_radiuses: list[float],
                  pallet_with_goods_count: int,
-
                  save_path=None) -> None:
         stage_utils.create_new_stage()
         prims_utils.create_prim("/World")
@@ -65,19 +62,11 @@ class SDG:
         self._dome_texture_urls = dome_texture_urls
         self._environment_urls = environment_urls
         dome_prim = prims_utils.create_prim(prim_path=self._dome_prim_path, prim_type="DomeLight",
-                                                  attributes={
-                                                      "inputs:intensity": 1000.0,
-                                                      "inputs:texture:file": dome_texture_urls[0]})
+                                            attributes={"inputs:intensity": 1000.0,
+                                                        "inputs:texture:file": dome_texture_urls[0]})
         # 2. Get the specific texture attribute
         # Note: The attribute name is 'inputs:texture:file'
         self._dome_texture = dome_prim.GetAttribute("inputs:texture:file")
-
-        # 3. Set the new path
-        # Using Sdf.AssetPath ensures USD handles the file link correctly
-        # self._dome_texture .Set(Sdf.AssetPath("C:/path/to/new_sky.hdr"))
-        texture = random.choice(self._dome_texture_urls)
-        self._dome_texture.Set(texture)
-
 
         self._prim_paths = load_usds(obj_urls_dir)
         self._pac = PermuAndCombi(self._prim_paths)
@@ -114,13 +103,11 @@ class SDG:
         logger.info("Preparing pallets with goods...")
         pca_list: list[PermuAndCombi] = await self._loads_with_goods
 
-        
         this_stage = stage_utils.get_current_stage()
 
         # Step 2: Collect stacking pallets (without goods)
         frames_generated_total = self._camera_light_randomizer.frames_generated * (self._counts // sample_interval +
                                                                                    len(self._prim_paths) * self._pallet_with_goods_count)
-        # frames_generated_total = self._camera_light_randomizer.frames_generated * (self._counts // sample_interval)
         logger.info(f"Preparation done. SDG is starting, {frames_generated_total} images will be generated.")
 
         with tqdm(total=frames_generated_total, desc="SDG Progress", unit=" Frames", file=sys.stdout) as pbar:
