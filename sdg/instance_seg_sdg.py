@@ -50,11 +50,35 @@ class SDG:
     # Set DLSS to Quality mode (2) for best SDG results (Options: 0 (Performance), 1 (Balanced), 2 (Quality), 3 (Auto)
     carb.settings.get_settings().set("rtx/post/dlss/execMode", 2)
 
-    def __init__(self, obj_urls_dir: str, boxes_urls_and_weights: list,
+    def __init__(self, environment_urls: list, dome_texture_urls: list, 
+                 obj_urls_dir: str, boxes_urls_and_weights: list,
                  img_resolution: tuple[int, int], stacking_cols: int, stacking_rows: int,
                  camera_height: float, camera_orbit_radiuses: list[float],
                  pallet_with_goods_count: int,
+
                  save_path=None) -> None:
+        stage_utils.create_new_stage()
+        prims_utils.create_prim("/World")
+        self._environment_prim_path = "/World/Environment"
+        self._dome_prim_path = "/World/Lights/DomeLight"
+
+        self._dome_texture_urls = dome_texture_urls
+        self._environment_urls = environment_urls
+        dome_prim = prims_utils.create_prim(prim_path=self._dome_prim_path, prim_type="DomeLight",
+                                                  attributes={
+                                                      "inputs:intensity": 1000.0,
+                                                      "inputs:texture:file": dome_texture_urls[0]})
+        # 2. Get the specific texture attribute
+        # Note: The attribute name is 'inputs:texture:file'
+        self._dome_texture = dome_prim.GetAttribute("inputs:texture:file")
+
+        # 3. Set the new path
+        # Using Sdf.AssetPath ensures USD handles the file link correctly
+        # self._dome_texture .Set(Sdf.AssetPath("C:/path/to/new_sky.hdr"))
+        texture = random.choice(self._dome_texture_urls)
+        self._dome_texture.Set(texture)
+
+
         self._prim_paths = load_usds(obj_urls_dir)
         self._pac = PermuAndCombi(self._prim_paths)
         self._img_resolution = img_resolution
@@ -80,6 +104,10 @@ class SDG:
 
         self._loads_with_goods: asyncio.Future = run_coroutine(
             prepare_loads_with_goods(self._prim_paths, pallet_with_goods_count, boxes_urls_and_weights)) # type: ignore
+        
+    def _random_dome_texture(self):
+        texture = random.choice(self._dome_texture_urls)
+        self._dome_texture.Set(texture)
 
     async def generate(self, sample_interval: int):
         # Step 1: Prepare loads with goods
@@ -104,7 +132,9 @@ class SDG:
                         pbar.update(1)
                         if frame % 3 == 0:
                             self._material_randomizer.randomize_material()
-                        if frame % 10 == 0:
+                        if frame % 4 == 0:
+                            self._random_dome_texture()
+                        if frame % 6 == 0:
                             self._camera_light_randomizer.randomize_light()
 
                         await rep.orchestrator.step_async(rt_subframes=8)

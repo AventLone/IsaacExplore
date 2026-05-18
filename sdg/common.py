@@ -2,7 +2,14 @@ from typing import Sequence
 from isaacsim.core.prims import SingleXFormPrim
 from isaacsim.core.utils import bounds as bounds_utils, prims as prims_utils, stage as stage_utils
 from pxr import Usd, Gf
-import pathlib
+import pathlib, glob, os
+
+def find_files(dir: str, extension: str, recursive=True):
+    # 拼接匹配模式，** 表示递归匹配任意层级的子文件夹
+    search_pattern = os.path.join(dir, "**", f"*{extension}")
+
+    # recursive=True 激活多层子文件夹的查找
+    return glob.glob(search_pattern, recursive=recursive)
 
 def find_usds(dir: str) -> list[str]:
     folder = pathlib.Path(dir)
