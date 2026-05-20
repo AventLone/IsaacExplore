@@ -1,7 +1,7 @@
 from typing import Sequence
 from isaacsim.core.prims import SingleXFormPrim
 from isaacsim.core.utils import bounds as bounds_utils, prims as prims_utils, stage as stage_utils
-from pxr import Usd, Gf
+from pxr import Usd, Gf, UsdGeom, UsdPhysics
 import pathlib, glob, os
 
 def find_files(dir: str, extension: str, recursive=True):
@@ -74,3 +74,24 @@ def set_world_trasform(prim: str | Usd.Prim,
     xform_prim.initialize()
     xform_prim.set_world_pose(translation, orientation)
     xform_prim.set_local_scale(scale)
+
+def add_colliders(prim):
+    prim = prim if type(prim) is Usd.Prim else prims_utils.get_prim_at_path(prim)
+    # Iterate descendant prims (including root) and add colliders to mesh or primitive types
+    for desc_prim in Usd.PrimRange(prim):
+        if desc_prim.IsA(UsdGeom.Mesh) or desc_prim.IsA(UsdGeom.Gprim):
+            # Physics
+            if not desc_prim.HasAPI(UsdPhysics.CollisionAPI):  # type: ignore
+                collision_api = UsdPhysics.CollisionAPI.Apply(desc_prim)  # type: ignore
+            else:
+                collision_api = UsdPhysics.CollisionAPI(desc_prim)  # type: ignore
+            collision_api.CreateCollisionEnabledAttr(True)
+
+        # Add mesh specific collision properties only to mesh types
+        if desc_prim.IsA(UsdGeom.Mesh):
+            if not desc_prim.HasAPI(UsdPhysics.MeshCollisionAPI):  # type: ignore
+                mesh_collision_api = UsdPhysics.MeshCollisionAPI.Apply(desc_prim)  # type: ignore
+            else:
+                mesh_collision_api = UsdPhysics.MeshCollisionAPI(desc_prim)  # type: ignore
+            # mesh_collision_api.CreateApproximationAttr().Set("triangleMesh")
+            mesh_collision_api.CreateApproximationAttr().Set("convexHull")

@@ -13,10 +13,12 @@ from .randomizer.evnet_randomizer import CameraAndLightRandomizer, MaterialRando
 from .randomizer import stack_boxes_on_pallet_async
 from .sample import PermuAndCombi
 from .common import find_usds, load_usds, set_local_trasform
+from sdg import common
 
 from omni.kit.async_engine import run_coroutine
 from datetime import datetime
 from isaacsim.core.utils import stage as stage_utils, prims as prims_utils
+from .path_generation import generate_rectangle_path
 from omni import usd
 
 async def prepare_loads_with_goods(prim_paths: list[str], loads_count: int, boxes_urls_and_weights: list):
@@ -32,7 +34,7 @@ async def prepare_loads_with_goods(prim_paths: list[str], loads_count: int, boxe
             for col in pca.column_prims:
                 num_boxes = random.randint(10, 50)
                 await stack_boxes_on_pallet_async(pallet_prim=col, boxes_urls_and_weights=boxes_urls_and_weights,
-                                                  num_boxes=num_boxes, overhang=0.2)
+                                                  num_boxes=num_boxes, overhang=0.1)
                 pbar.update(1)
 
             pca_list.append(pca)
@@ -59,22 +61,39 @@ class SDG:
         self._environment_prim_path = "/World/Environment"
         self._dome_prim_path = "/World/Lights/DomeLight"
 
+        stage_utils.add_reference_to_stage(
+            usd_path="/home/avent/Desktop/IsaacAssets/Collected_warehouse_trailer/Environments/warehouse_trailer.usd",
+            prim_path=self._environment_prim_path
+        )
+        common.set_world_trasform(prim=self._environment_prim_path,
+                                  translation=[-7.6, 4.85, 0.0], orientation=common.yaw2quat(90.0))
+
         self._dome_texture_urls = dome_texture_urls
         self._environment_urls = environment_urls
-        dome_prim = prims_utils.create_prim(prim_path=self._dome_prim_path, prim_type="DomeLight",
+        self._dome_prim = prims_utils.create_prim(prim_path=self._dome_prim_path, prim_type="DomeLight",
                                             attributes={"inputs:intensity": 1000.0,
                                                         "inputs:texture:file": dome_texture_urls[0]})
         # 2. Get the specific texture attribute
         # Note: The attribute name is 'inputs:texture:file'
-        self._dome_texture = dome_prim.GetAttribute("inputs:texture:file")
+        self._dome_texture = self._dome_prim.GetAttribute("inputs:texture:file")
 
         self._prim_paths = load_usds(obj_urls_dir)
         self._pac = PermuAndCombi(self._prim_paths)
         self._img_resolution = img_resolution
 
+        self._pac.create_columns(columns=stacking_cols, direction='x')
         # Randomizer
+        # dimensions_x, dimensions_y, _ = common.get_dimensions(self._pac.prim_path)
+        # dimensions_x = max(dimensions_x, 1.5)
+        # dimensions_y = max(dimensions_y, 1.5)
+        dimensions_x, dimensions_y = 1.25 * stacking_cols, 1.8
+        dimensions_list = [(dimensions_x + 0.2, dimensions_y + 0.2)]
+        for i in range(1, 4):
+            amplifier = i * 0.4 + 1.0
+            dimensions_list.append((dimensions_x * (amplifier - 0.2), dimensions_y * (amplifier + 0.2)))
+        camera_path = generate_rectangle_path(camera_height, dimensions_list)
+        self._camera_light_randomizer = CameraAndLightRandomizer(camera_path)
         self._material_randomizer = MaterialRandomizer(self._pac.prim_path)
-        self._camera_light_randomizer = CameraAndLightRandomizer(camera_height, camera_orbit_radiuses)
 
         self._render_product = rep.create.render_product(
             camera=self._camera_light_randomizer.camera, resolution=img_resolution)
@@ -89,14 +108,17 @@ class SDG:
         self._pallet_with_goods_count = pallet_with_goods_count
 
         self._counts = stacking_cols * (stacking_rows - 1)
-        run_coroutine(self._pac.line_up(columns=stacking_cols, rows=stacking_rows))
+        run_coroutine(self._pac.stack(columns=stacking_cols, rows=stacking_rows))
 
         self._loads_with_goods: asyncio.Future = run_coroutine(
             prepare_loads_with_goods(self._prim_paths, pallet_with_goods_count, boxes_urls_and_weights)) # type: ignore
         
     def _random_dome_texture(self):
-        texture = random.choice(self._dome_texture_urls)
-        self._dome_texture.Set(texture)
+        display_dome = random.choice([True, False])
+        common.make_visiable(self._environment_prim_path, display_dome)
+        if not display_dome:
+            texture = random.choice(self._dome_texture_urls)
+            self._dome_texture.Set(texture)
 
     async def generate(self, sample_interval: int):
         # Step 1: Prepare loads with goods
@@ -124,7 +146,7 @@ class SDG:
                         if frame % 6 == 0:
                             self._camera_light_randomizer.randomize_light()
 
-                        await rep.orchestrator.step_async(rt_subframes=8)
+                        await rep.orchestrator.step_async(rt_subframes=10)
             this_stage.RemovePrim(self._pac.prim_path)
 
             # Step 3: Collect data of pallets with goods, one by one
@@ -139,10 +161,11 @@ class SDG:
                     for frame in range(self._camera_light_randomizer.frames_generated):
                         self._camera_light_randomizer.randomize_camera()
                         pbar.update(1)
-                        # self.current_frames_generated += 1
+                        if frame % 4 == 0:
+                            self._random_dome_texture()
                         if frame % 10 == 0:
                             self._camera_light_randomizer.randomize_light()
-                        await rep.orchestrator.step_async(rt_subframes=8)
+                        await rep.orchestrator.step_async(rt_subframes=10)
                     this_stage.RemovePrim(target_prim_path)
 
         await rep.orchestrator.wait_until_complete_async()

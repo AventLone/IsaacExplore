@@ -81,11 +81,14 @@ class PermuAndCombi:
         Create all colomns
         """
         dimensions_x_list, dimensions_y_list = [], []
+        random.shuffle(self._component_prim_paths)
+        component_count = len(self._component_prim_paths)
         for col_idx in range(columns):
             col_prim_path = f"{self.prim_path}/Col{col_idx}"
             self.column_prims.append(prims_utils.create_prim(col_prim_path))
             component_path = f"{col_prim_path}/component0"
-            random_component = random.choice(self._component_prim_paths)
+            # random_component = random.choice(self._component_prim_paths)
+            random_component = self._component_prim_paths[col_idx] if col_idx +1 <= component_count else random.choice(self._component_prim_paths)
             usd.duplicate_prim(self._stage, prim_path=random_component, path_to=component_path)
             make_visiable(component_path)
             dimensions_x, dimensions_y, _ = get_dimensions(component_path)
@@ -116,16 +119,18 @@ class PermuAndCombi:
             set_local_trasform(col_prim_path, new_col_position)
         
 
-    async def line_up(self, columns: int, rows=1, direction: Literal['x', 'y'] = 'x', gap=0.02):
+    async def stack(self, columns: int, rows=1):
         col_list = list(range(1, columns + 1))
         random.shuffle(col_list)
 
-        self.create_columns(columns=columns, direction=direction, gap=gap)
+        # self.create_columns(columns=columns, direction=direction, gap=gap)
 
-        if rows > 1:
-            for col in range(columns):              
-                    for row in range(1, rows + 1):
-                        await self._trigger.wait()
-                        self._trigger.clear()
-                        self._pile_on(col, row)
-                        self._finished.set()
+        if rows <= 1:
+            return
+        
+        for col in range(columns):              
+                for row in range(1, rows + 1):
+                    await self._trigger.wait()
+                    self._trigger.clear()
+                    self._pile_on(col, row)
+                    self._finished.set()
